@@ -543,3 +543,51 @@ CREATE TRIGGER trigger_bridges
 	AFTER INSERT OR UPDATE ON bridges
 	FOR EACH ROW EXECUTE PROCEDURE history_bridges();
 
+-- This stores results from a BCN scan for devices.
+CREATE TABLE bcn_scan_results (
+	bcn_scan_result_uuid	 		uuid 			not null	primary key,
+	bcn_scan_result_mac				macaddr			not null,
+	bcn_scan_result_ip				inet			not null,
+	bcn_scan_result_vendor			text,
+	modified_date						timestamp with time zone	not null
+);
+ALTER TABLE bcn_scan_results OWNER TO #!variable!user!#;
+
+CREATE TABLE history.bcn_scan_results (
+	history_id						bigserial,
+	bcn_scan_result_uuid			uuid 			not null,
+	bcn_scan_result_mac				macaddr			not null,
+	bcn_scan_result_ip				inet 			not null,
+	bcn_scan_result_vendor			text,
+	modified_date 						timestamp with time zone not null
+);
+ALTER TABLE history.bcn_scan_results OWNER TO #!variable!user!#;
+
+CREATE FUNCTION history_bcn_scan_results() RETURNS trigger
+AS $$
+DECLARE
+	history_bcn_scan_results RECORD;
+BEGIN
+	SELECT INTO history_bcn_scan_results * FROM bcn_scan_results WHERE bcn_scan_result_uuid = new.bcn_scan_result_uuid;
+	INSERT INTO history.bcn_scan_results
+		(bcn_scan_result_uuid,
+		 bcn_scan_result_mac,
+		 bcn_scan_result_ip,
+		 bcn_scan_result_vendor,
+		 modified_date)
+	VALUES
+		(history_bcn_scan_results.bcn_scan_result_uuid,
+		 history_bcn_scan_results.bcn_scan_result_mac,
+		 history_bcn_scan_results.bcn_scan_result_ip,
+		 history_bcn_scan_results.bcn_scan_result_vendor,
+		 history_bcn_scan_results.modified_date);
+	RETURN NULL;
+END;
+$$
+LANGUAGE plpgsql;
+ALTER FUNCTION history_bcn_scan_results() OWNER TO #!variable!user!#;
+
+CREATE TRIGGER trigger_bcn_scan_reults
+	AFTER INSERT OR UPDATE ON bcn_scan_results
+	FOR EACH ROW EXECUTE PROCEDURE history_bcn_scan_results();
+
