@@ -1,12 +1,12 @@
 package Anvil::Tools;
-# 
+#
 # This is the "root" package that manages the sub modules and controls access to their methods.
-# 
+#
 
 BEGIN
 {
 	our $VERSION = "3.0.0";
-	# This suppresses the 'could not find ParserDetails.ini in /PerlApp/XML/SAX' warning message in 
+	# This suppresses the 'could not find ParserDetails.ini in /PerlApp/XML/SAX' warning message in
 	# XML::Simple calls.
 	#$ENV{HARNESS_ACTIVE} = 1;
 }
@@ -41,6 +41,7 @@ use Anvil::Tools::Database;
 use Anvil::Tools::Convert;
 use Anvil::Tools::Get;
 use Anvil::Tools::Log;
+use Anvil::Tools::NetworkScan;
 use Anvil::Tools::Storage;
 use Anvil::Tools::System;
 use Anvil::Tools::Template;
@@ -55,7 +56,7 @@ use Anvil::Tools::Validate;
 
 Anvil::Tools
 
-Provides a common oject handle to all Anvil::Tools::* module methods and handles invocation configuration. 
+Provides a common oject handle to all Anvil::Tools::* module methods and handles invocation configuration.
 
 =head1 SYNOPSIS
 
@@ -63,7 +64,7 @@ Provides a common oject handle to all Anvil::Tools::* module methods and handles
 
  # Get a common object handle on all Anvil::Tools::* modules.
  my $anvil = Anvil::Tools->new();
- 
+
  # Again, but this time sets some initial values in the '$anvil->data' hash.
  my $anvil = Anvil::Tools->new(
  {
@@ -73,9 +74,9 @@ Provides a common oject handle to all Anvil::Tools::* module methods and handles
  		baz		=>	{},
  	},
  });
- 
- # This example gets the handle and also sets the default user and log 
- # languages as Japanese, sets a custom log file and sets the log level to 
+
+ # This example gets the handle and also sets the default user and log
+ # languages as Japanese, sets a custom log file and sets the log level to
  # '2'.
  my $anvil = Anvil::Tools->new(
  {
@@ -115,6 +116,7 @@ sub new
 			CONVERT				=>	Anvil::Tools::Convert->new(),
 			GET				=>	Anvil::Tools::Get->new(),
 			LOG				=>	Anvil::Tools::Log->new(),
+			NETWORKSCAN				=>	Anvil::Tools::NetworkScan->new(),
 			STORAGE				=>	Anvil::Tools::Storage->new(),
 			SYSTEM				=>	Anvil::Tools::System->new(),
 			TEMPLATE			=>	Anvil::Tools::Template->new(),
@@ -130,42 +132,43 @@ sub new
 			UUID			=>	"",
 		},
 	};
-	
+
 	# Bless you!
 	bless $self, $class;
-	
+
 	# This isn't needed, but it makes the code below more consistent with and portable to other modules.
-	my $anvil = $self; 
+	my $anvil = $self;
 	weaken($anvil);	# Helps avoid memory leaks. See Scalar::Utils
-	
+
 	# Record the start time.
 	$anvil->data->{ENV_VALUES}{START_TIME} = Time::HiRes::time;
-	
+
 	# Get a handle on the various submodules
 	$anvil->Alert->parent($anvil);
 	$anvil->Database->parent($anvil);
 	$anvil->Convert->parent($anvil);
 	$anvil->Get->parent($anvil);
 	$anvil->Log->parent($anvil);
+	$anvil->NetworkScan->parent($anvil);
 	$anvil->Storage->parent($anvil);
 	$anvil->System->parent($anvil);
 	$anvil->Template->parent($anvil);
 	$anvil->Words->parent($anvil);
 	$anvil->Validate->parent($anvil);
-	
+
 	# Set some system paths and system default variables
 	$anvil->_set_paths;
 	$anvil->_set_defaults;
-	
+
 	# This will help clean up if we catch a signal.
 	$SIG{INT}  = sub { $anvil->catch_sig({signal => "INT"});  };
 	$SIG{TERM} = sub { $anvil->catch_sig({signal => "TERM"}); };
-	
+
 	# This sets the environment this program is running in.
 	if ($ENV{SERVER_NAME})
 	{
 		$anvil->environment("html");
-		
+
 		# There is no PWD environment variable, so we'll use 'DOCUMENT_ROOT' as 'PWD'
 		$ENV{PWD} = $ENV{DOCUMENT_ROOT};
 	}
@@ -173,25 +176,25 @@ sub new
 	{
 		$anvil->environment("cli");
 	}
-	
+
 	# Setup my '$anvil->data' hash right away so that I have a place to store the strings hash.
 	$anvil->data($parameter->{data}) if $parameter->{data};
-	
+
 	# Initialize the list of directories to seach.
 	$anvil->Storage->search_directories({initialize => 1});
-	
+
 	# I need to read the initial words early.
 	$anvil->Words->read({file  => $anvil->data->{path}{words}{'words.xml'}});
-	
+
 	# If the local './tools.conf' file exists, read it in.
 	if (-r $anvil->data->{path}{configs}{'anvil.conf'})
 	{
 		$anvil->Storage->read_config({file => $anvil->data->{path}{configs}{'anvil.conf'}});
 	}
-	
+
 	# Read in any command line switches.
 	$anvil->Get->switches;
-	
+
 	# Set passed parameters if needed.
 	if (ref($parameter) eq "HASH")
 	{
@@ -204,7 +207,7 @@ sub new
 		print $THIS_FILE." ".__LINE__."; Anvil::Tools->new() invoked with an invalid parameter. Expected a hash reference, but got: [$parameter]\n";
 		exit(1);
 	}
-	
+
 	return ($self);
 }
 
@@ -239,10 +242,10 @@ Data can be entered into or access by treating '$anvil->data' as a normal hash r
 		},
  	},
  });
- 
+
  # Copy the 'Cat' value into the $animal variable.
  my $animal = $anvil->data->{baz}{animal};
- 
+
  # Set 'A thing' in 'foo'.
  $anvil->data->{foo} = "A thing";
 
@@ -252,10 +255,10 @@ The C<$an> variable is set inside all modules and acts as shared storage for var
 sub data
 {
 	my ($anvil) = shift;
-	
+
 	# Pick up the passed in hash, if any.
 	$anvil->{DATA} = shift if $_[0];
-	
+
 	return ($anvil->{DATA});
 }
 
@@ -283,9 +286,9 @@ Technically, any string can be used, however only 'cli' or 'html' are used by co
 =cut
 sub environment
 {
-	my ($anvil) = shift; 
+	my ($anvil) = shift;
 	weaken($anvil);
-	
+
 	# Pick up the passed in delimiter, if any.
 	if ($_[0])
 	{
@@ -297,7 +300,7 @@ sub environment
 			use CGI::Carp qw(fatalsToBrowser);
 		}
 	}
-	
+
 	return ($anvil->{ENV_VALUES}{ENVIRONMENT});
 }
 
@@ -317,22 +320,22 @@ sub nice_exit
 	my $self      = shift;
 	my $parameter = shift;
 	my $anvil        = $self;
-	
+
 	my $exit_code = defined $parameter->{exit_code} ? $parameter->{exit_code} : 0;
-	
+
 	# Close database connections (if any).
 	$anvil->Database->disconnect();
-	
+
 	# Report the runtime.
 	my $end_time = Time::HiRes::time;
 	my $run_time = $end_time - $anvil->data->{ENV_VALUES}{START_TIME};
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { 
-		's1:ENV_VALUES::START_TIME' => $anvil->data->{ENV_VALUES}{START_TIME}, 
-		's2:end_time'               => $end_time, 
-		's3:run_time'               => $run_time, 
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => {
+		's1:ENV_VALUES::START_TIME' => $anvil->data->{ENV_VALUES}{START_TIME},
+		's2:end_time'               => $end_time,
+		's3:run_time'               => $run_time,
 	}});
 	$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 1, key => "log_0135", variables => { runtime => $run_time }});
-	
+
 	exit($exit_code);
 }
 
@@ -355,7 +358,7 @@ Access the C<Alert.pm> methods via 'C<< $anvil->Alert->method >>'.
 sub Alert
 {
 	my $self = shift;
-	
+
 	return ($self->{HANDLE}{ALERT});
 }
 
@@ -367,7 +370,7 @@ Access the C<Database.pm> methods via 'C<< $anvil->Database->method >>'.
 sub Database
 {
 	my $self = shift;
-	
+
 	return ($self->{HANDLE}{DATABASE});
 }
 
@@ -379,7 +382,7 @@ Access the C<Convert.pm> methods via 'C<< $anvil->Convert->method >>'.
 sub Convert
 {
 	my $self = shift;
-	
+
 	return ($self->{HANDLE}{CONVERT});
 }
 
@@ -391,7 +394,7 @@ Access the C<Get.pm> methods via 'C<< $anvil->Get->method >>'.
 sub Get
 {
 	my $self = shift;
-	
+
 	return ($self->{HANDLE}{GET});
 }
 
@@ -403,8 +406,20 @@ Access the C<Log.pm> methods via 'C<< $anvil->Log->method >>'.
 sub Log
 {
 	my $self = shift;
-	
+
 	return ($self->{HANDLE}{LOG});
+}
+
+=head2 NetworkScan
+
+Access the C<NetworkScan.pm> methods via 'C<< $anvil->NetworkScan->method >>'.
+
+=cut
+sub NetworkScan
+{
+	my $self = shift;
+
+	return ($self->{HANDLE}{NETWORKSCAN});
 }
 
 =head2 Storage
@@ -415,7 +430,7 @@ Access the C<Storage.pm> methods via 'C<< $anvil->Storage->method >>'.
 sub Storage
 {
 	my $self = shift;
-	
+
 	return ($self->{HANDLE}{STORAGE});
 }
 
@@ -427,7 +442,7 @@ Access the C<System.pm> methods via 'C<< $anvil->System->method >>'.
 sub System
 {
 	my $self = shift;
-	
+
 	return ($self->{HANDLE}{SYSTEM});
 }
 
@@ -439,7 +454,7 @@ Access the C<Template.pm> methods via 'C<< $anvil->Template->method >>'.
 sub Template
 {
 	my $self = shift;
-	
+
 	return ($self->{HANDLE}{TEMPLATE});
 }
 
@@ -451,7 +466,7 @@ Access the C<Words.pm> methods via 'C<< $anvil->Words->method >>'.
 sub Words
 {
 	my $self = shift;
-	
+
 	return ($self->{HANDLE}{WORDS});
 }
 
@@ -463,7 +478,7 @@ Access the C<Validate.pm> methods via 'C<< $anvil->Validate->method >>'.
 sub Validate
 {
 	my $self = shift;
-	
+
 	return ($self->{HANDLE}{VALIDATE});
 }
 
@@ -490,7 +505,7 @@ sub _add_hash_reference
 	my $self  = shift;
 	my $href1 = shift;
 	my $href2 = shift;
-	
+
 	for my $key (keys %$href2)
 	{
 		if (ref $href1->{$key} eq 'HASH')
@@ -513,7 +528,7 @@ sub _hostname
 {
 	my $self = shift;
 	my $anvil   = $self;
-	
+
 	my $hostname = "";
 	if ($ENV{HOSTNAME})
 	{
@@ -525,7 +540,7 @@ sub _hostname
 		# The environment variable isn't set. Call 'hostname' on the command line.
 		$hostname = $anvil->System->call({shell_call => $anvil->data->{path}{exe}{hostname}});
 	}
-	
+
 	return($hostname);
 }
 
@@ -555,10 +570,10 @@ sub _get_hash_reference
 	my $self      = shift;
 	my $parameter = shift;
 	my $anvil        = $self;
-	
+
 	#print "$THIS_FILE ".__LINE__."; hash: [".$an."], key: [$parameter->{key}]\n";
 	die "$THIS_FILE ".__LINE__."; The hash key string: [$parameter->{key}] doesn't seem to be valid. It should be a string in the format 'foo::bar::baz'.\n" if $parameter->{key} !~ /::/;
-	
+
 	# Split up the keys.
 	my $key   = $parameter->{key} ? $parameter->{key} : "";
 	my $value = undef;	# We return 'undef' so that the caller can tell the difference between an empty string versus nothing found.
@@ -566,17 +581,17 @@ sub _get_hash_reference
 	{
 		my @keys     = split /::/, $key;
 		my $last_key = pop @keys;
-		
+
 		# Re-order the array.
 		my $current_hash_ref = $anvil->data;
 		foreach my $key (@keys)
 		{
 			$current_hash_ref = $current_hash_ref->{$key};
 		}
-		
+
 		$value = $current_hash_ref->{$last_key};
 	}
-	
+
 	return ($value);
 }
 
@@ -593,7 +608,7 @@ sub _make_hash_reference
 	my $href       = shift;
 	my $key_string = shift;
 	my $value      = shift;
-	
+
 	my @keys            = split /::/, $key_string;
 	my $last_key        = pop @keys;
 	my $_href           = {};
@@ -615,7 +630,7 @@ This sets default variable values for the program.
 sub _set_defaults
 {
 	my ($anvil) = shift;
-	
+
 	$anvil->data->{sys}      = {
 		daemons				=>	{
 			restart_firewalld		=>	1,
@@ -632,6 +647,7 @@ sub _set_defaults
 			core_tables			=>	[
 									"alerts",
 									"alert_sent",
+									"bcn_scan_results",
 									"bonds",
 									"bridges",
 									"hosts",
@@ -660,7 +676,7 @@ sub _set_defaults
 			output		=>	'en_CA',
 		},
 		limits		=>	{
-			# This is the maximum number of times we're allow to loop when injecting variables 
+			# This is the maximum number of times we're allow to loop when injecting variables
 			# into a string being processed in Anvil::Tools::Words->string();
 			string_loops	=>	1000,
 		},
@@ -680,7 +696,7 @@ sub _set_defaults
 			html		=>	"alteeve",
 		},
 	};
-	
+
 	return(0);
 }
 
@@ -692,7 +708,7 @@ This sets default paths to many system commands, checking to make sure the binar
 sub _set_paths
 {
 	my ($anvil) = shift;
-	
+
 	# Executables
 	$anvil->data->{path} = {
 			configs			=>	{
@@ -767,7 +783,7 @@ sub _set_paths
 				'words.xml'		=>	"/usr/sbin/anvil/words.xml",
 			},
 	};
-	
+
 	# Make sure we actually have the requested files.
 	foreach my $type (sort {$a cmp $b} keys %{$anvil->data->{path}})
 	{
@@ -785,7 +801,7 @@ sub _set_paths
 			}
 		}
 	};
-	
+
 	return(0);
 }
 
@@ -798,10 +814,10 @@ sub _short_hostname
 {
 	my $self  = shift;
 	my $anvil =  $self;
-	
+
 	my $short_host_name =  $anvil->_hostname;
 	   $short_host_name =~ s/\..*$//;
-	
+
 	return($short_host_name);
 }
 
@@ -830,7 +846,7 @@ The following packages are required on EL7.
 
 =head1 Recommended Packages
 
-The following packages provide non-critical functionality. 
+The following packages provide non-critical functionality.
 
 * C<subscription-manager>
 
@@ -844,7 +860,7 @@ sub catch_sig
 	my $parameter = shift;
 	my $anvil        = $self;
 	my $signal    = $parameter->{signal} ? $parameter->{signal} : "";
-	
+
 	if ($signal)
 	{
 		print "Process with PID: [$$] exiting on SIG".$signal.".\n";
