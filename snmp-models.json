@@ -1,0 +1,6 @@
+{
+  "models": [
+    { "name": "Dominion PX", "vendor": "Raritan", "sysObjectID": "13742.4", "matches": [{ "oid": "1.3.6.1.2.1.1.1.0", "value": "Raritan Dominion PX" }], "type": "PDU" },
+    { "name": "Smart-UPS 1500 XLM", "vendor": "American Power Conversion Corp.", "sysObjectID": "318.1.3.2.7", "matches": [{ "oid": "1.3.6.1.2.1.1.1.0", "value": "APC Web/SNMP Management Card" }], "type": "UPS" }
+  ]
+}

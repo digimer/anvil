@@ -633,6 +633,7 @@ sub _set_defaults
 			core_tables			=>	[
 									"alerts",
 									"alert_sent",
+									"bcn_scan_results",
 									"bonds",
 									"bridges",
 									"hosts",
