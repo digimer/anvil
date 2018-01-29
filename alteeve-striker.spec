@@ -7,7 +7,7 @@ Summary:        Alteeve Anvil! Striker dashboard
 
 License:        GPLv2+
 URL:            https://github.com/Seneca-CDOT/anvil
-Source0:        https://github.com/Seneca-CDOT/anvil/archive/network-scan.tar.gz
+Source0:        https://github.com/Seneca-CDOT/anvil/archive/master.tar.gz
 BuildArch:      noarch
 
 Conflicts:      iptables-services
@@ -29,7 +29,7 @@ Web interface of the Striker dashboard for Alteeve Anvil! systems
 
 
 %prep
-%autosetup -n anvil-network-scan
+%autosetup -n anvil-master
 
 
 %build
@@ -53,7 +53,6 @@ cp -R -p tools/* %{buildroot}/usr/sbin/
 cp -R -p anvil.conf %{buildroot}/etc/anvil/
 mv %{buildroot}/%{_sbindir}/anvil.sql %{buildroot}/%{_datarootdir}/anvil.sql
 mv %{buildroot}/%{_sbindir}/words.xml %{buildroot}/%{_datarootdir}/words.xml
-%make_install
 
 
 %files
