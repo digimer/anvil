@@ -66,7 +66,7 @@ enable_epel_release () {
 
 # Install additional required packages
 required_packages () {
-	yum -y install perl-XML-Simple postgresql-server postgresql-plperl postgresql-contrib perl-CGI perl-NetAddr-IP perl-DBD-Pg rsync perl-Log-Journald perl-Net-SSH2 httpd nmap 'perl(SNMP)' 'perl(Net::SNMP)'
+	yum -y install perl-XML-Simple postgresql-server postgresql-plperl postgresql-contrib perl-CGI perl-NetAddr-IP perl-DBD-Pg rsync perl-Log-Journald perl-Net-SSH2 httpd nmap 'perl(SNMP)' 'perl(Net::SNMP)' 'perl(Device::SerialPort)' 'perl(Net::Telnet)'
 }
 
 # Install useful sysadmin/troubleshooting utilities
