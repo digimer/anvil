@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Anvil::Tools;
+
+my $anvil = Anvil::Tools->new();
+
+=head2 network_scan
+
+Scans a subnet using nmap and prints the results to stdout in CSV format.
+
+=head2 Parameters;
+
+=head3 subnet
+
+The first two octets of an IP address.
+
+Example: "10.20"
+
+=cut
+sub network_scan {
+  my $parameter = shift;
+  my $subnet = defined $parameter->{subnet} ? $parameter->{subnet} : "";
+
+  print "Scanning devices...\n\n";
+  $anvil->NetworkScan->scan({subnet => $subnet});
+
+  print "IP,MAC,OEM\n";
+
+  foreach my $this_ip (sort {$a cmp $b} keys %{$anvil->data->{scan}{ip}})
+  {
+    my $mac = $anvil->data->{scan}{ip}{$this_ip}{mac};
+    my $oem = $anvil->data->{scan}{ip}{$this_ip}{oem};
+    print "$this_ip,$mac,$oem\n";
+  }
+
+  #print "Saving Scan Results to the Database.\n";
+  #$anvil->NetworkScan->save_scan_to_db();
+
+  print "Scan Completed.\n";
+}
+
+$anvil->Get->switches();
+my $subnet = defined $anvil->data->{switches}{subnet} ? $anvil->data->{switches}{subnet} : "";
+
+if ($subnet) {
+  network_scan({subnet => $subnet});
+} else {
+  print("Usage: ./network-scan --subnet 10.20");
+}
+
+exit(0);
