@@ -79,6 +79,10 @@ $anvil->Get->cgi();
 $anvil->data->{skin}{url} = $anvil->data->{path}{urls}{skins}."/".$anvil->Template->skin;
 my $header = $anvil->Template->get({file => "main.html", name => "header", variables => { language => $anvil->Words->language }});
 my $body   = "";
+
+# If any jobs are pending/running, show the "unavailable" option.
+my $available = check_availability($anvil);
+
 # This will be true when the dashboard is unconfigured.
 if (not $anvil->data->{cgi}{step}{value})
 {
@@ -91,7 +95,7 @@ elsif ($anvil->data->{cgi}{step}{value} eq "step1")
 	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { sane => $sane }});
 	if ($sane)
 	{
-		# Step 1 was sanem show step 2.
+		# Step 1 was sane, show step 2.
 		$body = config_step2($anvil);
 	}
 	else
@@ -104,10 +108,10 @@ elsif ($anvil->data->{cgi}{step}{value} eq "step2")
 {
 	# Sanity check step1.
 	my $sane = sanity_check_step2($anvil);
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { sane => $sane }});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { sane => $sane }});
 	if ($sane)
 	{
-		# Step 1 was sanem show step 2.
+		# Step 2 was sane, show step 3.
 		$body = config_step3($anvil);
 	}
 	else
@@ -115,6 +119,11 @@ elsif ($anvil->data->{cgi}{step}{value} eq "step2")
 		# No good
 		$body = config_step2($anvil);
 	}
+}
+elsif ($anvil->data->{cgi}{step}{value} eq "step3")
+{
+	# User has confirmed, update the system!
+	update_system($anvil);
 }
 else
 {
@@ -145,6 +154,27 @@ $anvil->nice_exit({exit_code => 0});
 #############################################################################################################
 # Functions                                                                                                 #
 #############################################################################################################
+
+# This sets a flag that disables this dashboard and requests the reconfiguration of this system.
+sub update_system
+{
+	my ($anvil) = @_;
+	
+	
+	return(0);
+}
+
+# This checks to see if anything is running that requires Striker being unavailable. If not, this returns
+# '1'. If there is a job pending/running, it returns '0'
+sub check_availability
+{
+	my ($anvil) = @_;
+	
+	my $available = 1;
+	
+	
+	return($available);
+}
 
 # This shows the user what is about to be done and asks the user to confirm.
 sub config_step3
@@ -284,6 +314,7 @@ ORDER BY
 		striker_password         => $anvil->data->{cgi}{striker_password}{value},
 		networks                 => $networks,
 		cgi_list                 => $cgi."step",
+		show_name                => 1,
 	}});
 	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { step3_body => $step3_body }});
 	

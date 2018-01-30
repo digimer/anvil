@@ -297,7 +297,7 @@ sub read
 	else
 	{
 		# Read the file with XML::Simple
-		my $xml  = XML::Simple->new();
+		my $xml = XML::Simple->new();
 		eval { $anvil->data->{words}{$file} = $xml->XMLin($file, KeyAttr => { language => 'name', key => 'name' }, ForceArray => [ 'language', 'key' ]) };
 		if ($@)
 		{
@@ -308,6 +308,7 @@ sub read
 			   $error .= "===========================================================\n";
 			$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 0, priority => "err", raw => $error});
 			$return_code = 4;
+			die;
 		}
 		else
 		{
@@ -397,11 +398,11 @@ sub string
 	# Setup default values
 	my $key       = defined $parameter->{key}       ? $parameter->{key}       : "";
 	my $language  = defined $parameter->{language}  ? $parameter->{language}  : $anvil->Words->language;
-	my $file      = defined $parameter->{file}      ? $parameter->{file}      : "";
+	my $file      = defined $parameter->{file}      ? $parameter->{file}      : $anvil->data->{path}{words}{'words.xml'};
 	my $string    = defined $parameter->{string}    ? $parameter->{string}    : "";
 	my $variables = defined $parameter->{variables} ? $parameter->{variables} : "";
 	
-	# If we weren't passed a raw string, we'll get the string from our ->key() method, the inject any 
+	# If we weren't passed a raw string, we'll get the string from our ->key() method, then inject any 
 	# variables, if needed. This also handles the initial sanity checks. If we get back '#!not_found!#',
 	# we'll exit.
 	if (not $string)

@@ -25,7 +25,9 @@ my $connections = $anvil->Database->connect({
 	sql_file   => $anvil->data->{sys}{database}{schema},
 	test_table => "network_interfaces", 
 });
-$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 2, key => "log_0132", variables => { connections => $connections }});
+
+print $THIS_FILE." ".__LINE__."; connections: [".$connections."]\n";
+$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 3, key => "log_0132", variables => { connections => $connections }});
 if (not $connections)
 {
 	# No databases, exit.
@@ -35,7 +37,7 @@ if (not $connections)
 
 report_network($anvil);
 
-exit(0);
+$anvil->nice_exit({exit_code => 0});
 
 #############################################################################################################
 # Functions                                                                                                 #
@@ -48,6 +50,7 @@ sub report_network
 	
 	# Write out the data in json format.
 	my $directory = $anvil->data->{path}{sysfs}{network_interfaces};
+	#print $THIS_FILE." ".__LINE__."; directory: [".$directory."]\n";
 	local(*DIRECTORY);
 	$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 3, key => "log_0018", variables => { directory => $directory }});
 	opendir(DIRECTORY, $directory);
@@ -57,6 +60,7 @@ sub report_network
 		next if $file eq "..";
 		next if $file eq "lo";
 		my $full_path = "$directory/$file";
+		#print $THIS_FILE." ".__LINE__."; full_path: [".$full_path."]\n";
 		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { full_path => $full_path }});
 		if (-d $full_path)
 		{
@@ -92,7 +96,7 @@ sub report_network
 			}
 			
 			# Log
-			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { 
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
 				interface   => $interface, 
 				mac_address => $mac_address, 
 				link_state  => $link_state, 

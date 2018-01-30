@@ -8,6 +8,7 @@ use warnings;
 use DBI;
 use Scalar::Util qw(weaken isweak);
 use Data::Dumper;
+use Time::HiRes qw(gettimeofday tv_interval);
 
 our $VERSION  = "3.0.0";
 my $THIS_FILE = "Database.pm";
@@ -22,6 +23,8 @@ my $THIS_FILE = "Database.pm";
 # get_local_id
 # initialize
 # insert_or_update_hosts
+# insert_or_update_jobs
+# insert_or_update_network_interfaces
 # insert_or_update_states
 # insert_or_update_variables
 # lock_file
@@ -221,7 +224,7 @@ sub configure_pgsql
 	{
 		# This is a minor error as it will be hit by every unpriviledged program that connects to the
 		# database(s).
-		$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 2, priority => "alert", key => "log_0113"});
+		$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 3, priority => "alert", key => "log_0113"});
 		return("!!error!!");
 	}
 	
@@ -588,7 +591,7 @@ If this is not set, no attempt to resync the database will be made.
 
 =head3 sql_file (optional)
 
-This is the SQL schema file that will be used to initialize the database, if the C<< test_table >> isn't found in a given database that is connected to. By default, this is C<< path::sql::Tools.sql >> (C<< /usr/share/perl/AN/Tools.sql >> by default). 
+This is the SQL schema file that will be used to initialize the database, if the C<< test_table >> isn't found in a given database that is connected to. By default, this is C<< path::sql::anvil.sql >> (C<< /usr/share/perl/AN/Tools.sql >> by default). 
 
 =head3 tables (optional)
 
@@ -634,6 +637,9 @@ sub connect
 		tables     => $tables, 
 		test_table => $test_table, 
 	}});
+	
+	my $start_time = [gettimeofday];
+	print "Start time: [".$start_time->[0].".".$start_time->[1]."]\n";
 	
 	$anvil->data->{sys}{db_timestamp} = "" if not defined $anvil->data->{sys}{db_timestamp};
 	
@@ -713,10 +719,15 @@ sub connect
 			db_connect_string                      => $db_connect_string, 
 			"database::${id}::ping_before_connect" => $anvil->data->{database}{$id}{ping_before_connect},
 		}});
-		if ($anvil->data->{database}{$id}{ping_before_connect})
+		#if ($anvil->data->{database}{$id}{ping_before_connect})
+		if (0)
 		{
 			# Can I ping?
 			my ($pinged) = $anvil->System->ping({ping => $host, count => 1});
+			
+			my $ping_time = tv_interval ($start_time, [gettimeofday]);
+			print "[".$ping_time."] - Pinged: [$host:$port:$name:$user]\n";
+			
 			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { pinged => $pinged }});
 			if (not $pinged)
 			{
@@ -747,6 +758,31 @@ sub connect
 		{
 			$anvil->data->{sys}{read_db_id} = $id;
 			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { "sys::read_db_id" => $anvil->data->{sys}{read_db_id} }});
+		}
+		
+		# If this isn't a local database, read the target's Anvil! version (if available) and make 
+		# sure it matches ours. If it doesn't, skip this database.
+		if (not $is_local)
+		{
+			my $remote_version = $anvil->Get->anvil_version({
+				target   => $host,
+				password => $password,
+			});
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { 
+				remote_version          => $remote_version, 
+				"anvil->_anvil_version" => $anvil->_anvil_version,
+			}});
+			
+			if ($remote_version ne $anvil->_anvil_version)
+			{
+				# Version doesn't match, 
+				$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 1, key => "log_0145", variables => { 
+					host           => $host,
+					local_version  => $anvil->_anvil_version, 
+					target_version => $remote_version,
+				}});
+				next;
+			}
 		}
 		
 		# Connect!
@@ -844,15 +880,17 @@ sub connect
 			if ($test_table ne $anvil->data->{defaults}{sql}{test_table})
 			{
 				my $query = "SELECT COUNT(*) FROM pg_catalog.pg_tables WHERE tablename=".$anvil->data->{sys}{use_db_fh}->quote($anvil->data->{defaults}{sql}{test_table})." AND schemaname='public';";
-				$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { query => $query }});
+				$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { query => $query }});
 				
 				my $count = $anvil->Database->query({id => $id, query => $query, source => $THIS_FILE, line => __LINE__})->[0]->[0];
+				$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { count => $count }});
 				
-				$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { count => $count }});
 				if ($count < 1)
 				{
+					### TODO: Create a version file/flag and don't sync with peers unless
+					###       they are the same version. Back-port this to v2.
 					# Need to load the database.
-					$anvil->Database->initialize({id => $id, sql_file => $anvil->data->{path}{sql}{'Tools.sql'}});
+					$anvil->Database->initialize({id => $id, sql_file => $anvil->data->{path}{sql}{'anvil.sql'}});
 				}
 			}
 			
@@ -915,6 +953,9 @@ sub connect
 			}});
 		}
 	}
+	
+	my $total = tv_interval ($start_time, [gettimeofday]);
+	print "Total runtime: [".$total."]\n";
 	
 	# Do I have any connections? Don't die, if not, just return.
 	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { connections => $connections }});
@@ -1190,33 +1231,51 @@ sub get_local_id
 	my $anvil     = $self->parent;
 	$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 3, key => "log_0125", variables => { method => "Database->get_local_id()" }});
 	
+	my $debug           = 3;
 	my $local_id        = "";
 	my $network_details = $anvil->Get->network_details;
 	foreach my $id (sort {$a cmp $b} keys %{$anvil->data->{database}})
 	{
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { 
+			"network_details->hostname" => $network_details->{hostname},
+			"database::${id}::host"     => $anvil->data->{database}{$id}{host},
+		}});
 		if ($network_details->{hostname} eq $anvil->data->{database}{$id}{host})
 		{
 			$local_id = $id;
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { local_id => $local_id }});
 			last;
 		}
 	}
+	
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { local_id => $local_id }});
 	if (not $local_id)
 	{
 		foreach my $interface (sort {$a cmp $b} keys %{$network_details->{interface}})
 		{
 			my $ip_address  = $network_details->{interface}{$interface}{ip};
 			my $subnet_mask = $network_details->{interface}{$interface}{netmask};
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { 
+				ip_address  => $ip_address,
+				subnet_mask => $subnet_mask,
+			}});
 			foreach my $id (sort {$a cmp $b} keys %{$anvil->data->{database}})
 			{
+				$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { 
+					ip_address              => $ip_address,
+					"database::${id}::host" => $anvil->data->{database}{$id}{host},
+				}});
 				if ($ip_address eq $anvil->data->{database}{$id}{host})
 				{
 					$local_id = $id;
+					$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { local_id => $local_id }});
 					last;
 				}
 			}
 		}
 	}
 	
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { local_id => $local_id }});
 	return($local_id);
 }
 
@@ -1232,16 +1291,18 @@ sub initialize
 	my $anvil     = $self->parent;
 	$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 3, key => "log_0125", variables => { method => "Database->initialize()" }});
 	
+	my $debug    = $parameter->{debug}    ? $parameter->{debug}    : 3;
 	my $id       = $parameter->{id}       ? $parameter->{id}       : $anvil->data->{sys}{read_db_id};
-	my $sql_file = $parameter->{sql_file} ? $parameter->{sql_file} : $anvil->data->{path}{sql}{'Tools.sql'};
+	my $sql_file = $parameter->{sql_file} ? $parameter->{sql_file} : $anvil->data->{path}{sql}{'anvil.sql'};
 	my $success  = 1;
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { 
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { 
 		id       => $id, 
 		sql_file => $sql_file, 
 	}});
 	
 	# This just makes some logging cleaner below.
 	my $say_server = $anvil->data->{database}{$id}{host}.":".$anvil->data->{database}{$id}{port}." -> ".$anvil->data->{database}{$id}{name};
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { say_server => $say_server }});
 	
 	if (not $id)
 	{
@@ -1291,22 +1352,25 @@ sub initialize
 	
 	# Read in the SQL file and replace #!variable!name!# with the database owner name.
 	my $user = $anvil->data->{database}{$id}{user};
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { user => $user }});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { user => $user }});
 	
 	my $sql = $anvil->Storage->read_file({file => $sql_file});
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { ">> sql" => $sql }});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { ">> sql" => $sql }});
 	
 	$sql =~ s/#!variable!user!#/$user/sg;
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { "<< sql" => $sql }});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { "<< sql" => $sql }});
 	
 	# Now that I am ready, disable autocommit, write and commit.
 	$anvil->Database->write({id => $id, query => $sql, source => $THIS_FILE, line => __LINE__});
 	
 	$anvil->data->{sys}{db_initialized}{$id} = 1;
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { "sys::db_initialized::${id}" => $anvil->data->{sys}{db_initialized}{$id} }});
 	
 	# Mark that we need to update the DB.
 	$anvil->data->{sys}{database}{resync_needed} = 1;
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { "sys::database::resync_needed" => $anvil->data->{sys}{database}{resync_needed} }});
 	
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { success => $success }});
 	return($success);
 };
 
@@ -1437,6 +1501,327 @@ WHERE
 	
 	$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 3, key => "log_0126", variables => { method => "Database->insert_or_update_hosts()" }});
 	return(0);
+}
+
+
+=head2 insert_or_update_jobs
+
+This updates (or inserts) a record in the 'jobs' table. The C<< job_uuid >> referencing the database row will be returned.
+
+If there is an error, an empty string is returned.
+
+Parameters;
+
+=head3 job_uuid (optional)
+
+This is the C<< job_uuid >> to update. If it is not specified but the C<< job_name >> is, a check will be made to see if an entry already exists. If so, that row will be UPDATEd. If not, a random UUID will be generated and a new entry will be INSERTed.
+
+* This or C<< job_name >> must be passed
+
+=head3 job_name (required*)
+
+This is the C<< job_name >> to INSERT or UPDATE. If a C<< job_uuid >> is passed, then the C<< job_name >> can be changed.
+
+* This or C<< job_uuid >> must be passed
+
+=head3 job_host_uuid (optional)
+
+This is the host's UUID that this job entry belongs to. If not passed, C<< sys::host_uuid >> will be used.
+
+=head3 job_progress (required)
+
+This is a numeric value between C<< 0 >> and C<< 100 >>. The job will update this as it runs, with C<< 100 >> indicating that the job is complete. A value of C<< 0 >> will indicate that the job needs to be started. When the daemon picks up the job, it will set this to C<< 1 >>. Any value in between is set by the job itself.
+
+=head3 job_title (required*)
+
+This is a string key to display in the title of the box showing that the job is running.
+
+Variables can not be passed to this title key.
+
+* This is not required when C<< update_progress_only >> is set
+
+=head3 job_description (required*)
+
+This is a string key to display in the body of the box showing that the job is running.
+
+Variables can not be passed to this title key.
+
+* This is not required when C<< update_progress_only >> is set
+
+=cut 
+sub insert_or_update_jobs
+{
+	my $self      = shift;
+	my $parameter = shift;
+	my $anvil     = $self->parent;
+	$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 3, key => "log_0125", variables => { method => "Database->insert_or_update_jobs()" }});
+	
+	my $job_uuid             = defined $parameter->{job_uuid}             ? $parameter->{job_uuid}             : "";
+	my $job_host_uuid        = defined $parameter->{job_host_uuid}        ? $parameter->{job_host_uuid}        : $anvil->data->{sys}{host_uuid};
+	my $job_type             = defined $parameter->{job_type}             ? $parameter->{job_type}             : "";
+	my $job_name             = defined $parameter->{job_name}             ? $parameter->{job_name}             : "";
+	my $job_progress         = defined $parameter->{job_progress}         ? $parameter->{job_progress}         : "";
+	my $job_title            = defined $parameter->{job_title}            ? $parameter->{job_title}            : "";
+	my $job_description      = defined $parameter->{job_description}      ? $parameter->{job_description}      : "";
+	my $update_progress_only = defined $parameter->{update_progress_only} ? $parameter->{update_progress_only} : 0;
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+		job_uuid             => $job_uuid, 
+		job_host_uuid        => $job_host_uuid, 
+		job_type             => $job_type, 
+		job_name             => $job_name, 
+		job_progress         => $job_progress, 
+		job_title            => $job_title, 
+		job_description      => $job_description, 
+		update_progress_only => $update_progress_only, 
+	}});
+	
+	# If I have a job_uuid and update_progress_only is true, I only need the progress.
+	my $problem = 0;
+	
+	# Do I have a valid progress?
+	if (($job_progress !~ /^\d/) or ($job_progress < 0) or ($job_progress > 100))
+	{
+		$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 0, priority => "err", key => "log_0138", variables => { method => "Database->insert_or_update_jobs()", job_progress => $job_progress }});
+		$problem = 1;
+	}
+	
+	# Make sure I have the either a valid job UUID or a name
+	if ((not $anvil->Validate->is_uuid({uuid => $job_uuid})) && (not $job_name))
+	{
+		$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 0, priority => "err", key => "log_0136", variables => { 
+			method   => "Database->insert_or_update_jobs()", 
+			job_name => $job_name,
+			job_uuid => $job_uuid,
+		}});
+		$problem = 1;
+	}
+	
+	# Unless I am updating the progress, make sure everything is passed.
+	if (not $update_progress_only)
+	{
+		# Everything is required, except 'job_uuid'. So, job type?
+		if (not $job_type)
+		{
+			$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 0, priority => "err", key => "log_0020", variables => { method => "Database->insert_or_update_jobs()", parameter => "job_type" }});
+			$problem = 1;
+		}
+		elsif (($job_type ne "normal") && ($job_type ne "slow"))
+		{
+			$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 0, priority => "err", key => "log_0137", variables => { 
+				method         => "Database->insert_or_update_jobs()", 
+				module         => "Database",
+				variable_name  => "job_type",
+				variable_value => $job_type, 
+			}});
+			$problem = 1;
+		}
+		
+		# Job name?
+		if (not $job_name)
+		{
+			$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 0, priority => "err", key => "log_0020", variables => { method => "Database->insert_or_update_jobs()", parameter => "job_name" }});
+			$problem = 1;
+		}
+		
+		# Job name?
+		if (not $job_title)
+		{
+			$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 0, priority => "err", key => "log_0020", variables => { method => "Database->insert_or_update_jobs()", parameter => "job_title" }});
+			$problem = 1;
+		}
+		
+		# Job description?
+		if (not $job_description)
+		{
+			$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 0, priority => "err", key => "log_0020", variables => { method => "Database->insert_or_update_jobs()", parameter => "job_description" }});
+			$problem = 1;
+		}
+	}
+	
+	# We're done if there was a problem
+	if ($problem)
+	{
+		return("");
+	}
+	
+	# If we don't have a UUID, see if we can find one for the given job server name.
+	if (not $job_uuid)
+	{
+		my $query = "
+SELECT 
+    job_uuid 
+FROM 
+    jobs 
+WHERE 
+    job_name      = ".$anvil->data->{sys}{use_db_fh}->quote($job_name)." 
+AND 
+    job_host_uuid = ".$anvil->data->{sys}{use_db_fh}->quote($job_host_uuid)." 
+;";
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { query => $query }});
+		
+		my $results = $anvil->Database->query({query => $query, source => $THIS_FILE, line => __LINE__});
+		my $count   = @{$results};
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { 
+			results => $results, 
+			count   => $count, 
+		}});
+		foreach my $row (@{$results})
+		{
+			$job_uuid = $row->[0];
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { job_uuid => $job_uuid }});
+		}
+	}
+	
+	# If I still don't have an job_uuid, we're INSERT'ing .
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { job_uuid => $job_uuid }});
+	if (not $job_uuid)
+	{
+		# It's possible that this is called before the host is recorded in the database. So to be
+		# safe, we'll return without doing anything if there is no host_uuid in the database.
+		my $hosts = $anvil->Database->get_hosts();
+		my $found = 0;
+		foreach my $hash_ref (@{$hosts})
+		{
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+				"hash_ref->{host_uuid}" => $hash_ref->{host_uuid}, 
+				"sys::host_uuid"        => $anvil->data->{sys}{host_uuid}, 
+			}});
+			if ($hash_ref->{host_uuid} eq $anvil->data->{sys}{host_uuid})
+			{
+				$found = 1;
+				$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { found => $found }});
+			}
+		}
+		if (not $found)
+		{
+			# We're out.
+			return("");
+		}
+		
+		# INSERT
+		   $job_uuid = $anvil->Get->uuid();
+		my $query      = "
+INSERT INTO 
+    jobs 
+(
+    job_uuid, 
+    job_host_uuid, 
+    job_type, 
+    job_name,
+    job_progress, 
+    job_title, 
+    job_description, 
+    modified_date 
+) VALUES (
+    ".$anvil->data->{sys}{use_db_fh}->quote($job_uuid).", 
+    ".$anvil->data->{sys}{use_db_fh}->quote($job_host_uuid).", 
+    ".$anvil->data->{sys}{use_db_fh}->quote($job_type).", 
+    ".$anvil->data->{sys}{use_db_fh}->quote($job_name).", 
+    ".$anvil->data->{sys}{use_db_fh}->quote($job_progress).", 
+    ".$anvil->data->{sys}{use_db_fh}->quote($job_title).", 
+    ".$anvil->data->{sys}{use_db_fh}->quote($job_description).", 
+    ".$anvil->data->{sys}{use_db_fh}->quote($anvil->data->{sys}{db_timestamp})."
+);
+";
+		$query =~ s/'NULL'/NULL/g;
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { query => $query }});
+		$anvil->Database->write({query => $query, source => $THIS_FILE, line => __LINE__});
+	}
+	else
+	{
+		# Query the rest of the values and see if anything changed.
+		my $query = "
+SELECT 
+    job_host_uuid, 
+    job_type, 
+    job_name,
+    job_progress, 
+    job_title, 
+    job_description 
+FROM 
+    jobs 
+WHERE 
+    job_uuid = ".$anvil->data->{sys}{use_db_fh}->quote($job_uuid)." 
+;";
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { query => $query }});
+		
+		my $results = $anvil->Database->query({query => $query, source => $THIS_FILE, line => __LINE__});
+		my $count   = @{$results};
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+			results => $results, 
+			count   => $count, 
+		}});
+		foreach my $row (@{$results})
+		{
+			my $old_job_host_uuid   = $row->[0];
+			my $old_job_type        = $row->[1];
+			my $old_job_name        = $row->[2];
+			my $old_job_progress    = $row->[3];
+			my $old_job_title       = $row->[4];
+			my $old_job_description = $row->[5];
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { 
+				old_job_host_uuid   => $old_job_host_uuid,
+				old_job_type        => $old_job_type, 
+				old_job_name        => $old_job_name, 
+				old_job_progress    => $old_job_progress,
+				old_job_title       => $old_job_title, 
+				old_job_description => $old_job_description, 
+			}});
+			
+			# Anything change?
+			if ($update_progress_only)
+			{
+				if ($old_job_progress ne $job_progress)
+				{
+					# Something changed, save.
+					my $query = "
+UPDATE 
+    jobs 
+SET 
+    job_progress  = ".$anvil->data->{sys}{use_db_fh}->quote($job_progress).", 
+    modified_date = ".$anvil->data->{sys}{use_db_fh}->quote($anvil->data->{sys}{db_timestamp})." 
+WHERE 
+    job_uuid      = ".$anvil->data->{sys}{use_db_fh}->quote($job_uuid)." 
+";
+					$query =~ s/'NULL'/NULL/g;
+					$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { query => $query }});
+					$anvil->Database->write({query => $query, source => $THIS_FILE, line => __LINE__});
+				}
+			}
+			else
+			{
+				if (($old_job_host_uuid   ne $job_host_uuid) or 
+				    ($old_job_type        ne $job_type)      or 
+				    ($old_job_name        ne $job_name)      or 
+				    ($old_job_progress    ne $job_progress)  or 
+				    ($old_job_title       ne $job_title)     or 
+				    ($old_job_description ne $job_description))
+				{
+					# Something changed, save.
+					my $query = "
+UPDATE 
+    jobs 
+SET 
+    job_host_uuid   = ".$anvil->data->{sys}{use_db_fh}->quote($job_host_uuid).",  
+    job_type        = ".$anvil->data->{sys}{use_db_fh}->quote($job_type).", 
+    job_name        = ".$anvil->data->{sys}{use_db_fh}->quote($job_name).", 
+    job_progress    = ".$anvil->data->{sys}{use_db_fh}->quote($job_progress).", 
+    job_title       = ".$anvil->data->{sys}{use_db_fh}->quote($job_title).", 
+    job_description = ".$anvil->data->{sys}{use_db_fh}->quote($job_description).", 
+    modified_date   = ".$anvil->data->{sys}{use_db_fh}->quote($anvil->data->{sys}{db_timestamp})." 
+WHERE 
+    job_uuid        = ".$anvil->data->{sys}{use_db_fh}->quote($job_uuid)." 
+";
+					$query =~ s/'NULL'/NULL/g;
+					$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { query => $query }});
+					$anvil->Database->write({query => $query, source => $THIS_FILE, line => __LINE__});
+				}
+			}
+		}
+	}
+	
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { job_uuid => $job_uuid }});
+	return($job_uuid);
 }
 
 
@@ -3230,12 +3615,13 @@ sub write
 	$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 3, key => "log_0125", variables => { method => "Database->write()" }});
 	
 	my $id      = $parameter->{id}      ? $parameter->{id}     : "";
+	my $debug   = $parameter->{debug}   ? $parameter->{debug}  : 3;
 	my $line    = $parameter->{line}    ? $parameter->{line}   : __LINE__;
 	my $query   = $parameter->{query}   ? $parameter->{query}  : "";
 	my $secure  = $parameter->{secure}  ? $parameter->{secure} : 0;
 	my $source  = $parameter->{source}  ? $parameter->{source} : $THIS_FILE;
 	my $reenter = $parameter->{reenter} ? $parameter->{reenter} : "";
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { 
 		id                    => $id, 
 		"cache::db_fh::${id}" => $anvil->data->{cache}{db_fh}{$id}, 
 		line                  => $line, 
@@ -3264,14 +3650,14 @@ sub write
 	my @db_ids;
 	if ($id)
 	{
-		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { id => $id }});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { id => $id }});
 		push @db_ids, $id;
 	}
 	else
 	{
 		foreach my $id (sort {$a cmp $b} keys %{$anvil->data->{cache}{db_fh}})
 		{
-			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { id => $id }});
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { id => $id }});
 			push @db_ids, $id;
 		}
 	}
@@ -3280,19 +3666,19 @@ sub write
 	my $limit     = 25000;
 	my $count     = 0;
 	my $query_set = [];
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { "sys::database::maximum_batch_size" => $anvil->data->{sys}{database}{maximum_batch_size} }});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { "sys::database::maximum_batch_size" => $anvil->data->{sys}{database}{maximum_batch_size} }});
 	if ($anvil->data->{sys}{database}{maximum_batch_size})
 	{
 		if ($anvil->data->{sys}{database}{maximum_batch_size} =~ /\D/)
 		{
 			# Bad value.
 			$anvil->data->{sys}{database}{maximum_batch_size} = 25000;
-			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { "sys::database::maximum_batch_size" => $anvil->data->{sys}{database}{maximum_batch_size} }});
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { "sys::database::maximum_batch_size" => $anvil->data->{sys}{database}{maximum_batch_size} }});
 		}
 		
 		# Use the set value now.
 		$limit = $anvil->data->{sys}{database}{maximum_batch_size};
-		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { limit => $limit }});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { limit => $limit }});
 	}
 	if (ref($query) eq "ARRAY")
 	{
@@ -3301,7 +3687,7 @@ sub write
 		
 		# If I am re-entering, then we'll proceed normally. If not, and if we have more than 10k 
 		# queries, we'll split up the queries into 10k chunks and re-enter.
-		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { 
 			count   => $count, 
 			limit   => $limit, 
 			reenter => $reenter, 
@@ -3310,7 +3696,7 @@ sub write
 		{
 			my $i    = 0;
 			my $next = $limit;
-			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { i => $i, 'next' => $next }});
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { i => $i, 'next' => $next }});
 			foreach my $this_query (@{$query})
 			{
 				push @{$query_set}, $this_query;
@@ -3355,11 +3741,11 @@ sub write
 	foreach my $id (@db_ids)
 	{
 		# Test access to the DB before we do the actual query
-		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { id => $id }});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { id => $id }});
 		$anvil->Database->_test_access({id => $id});
 		
 		# Do the actual query(ies)
-		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { 
 			id    => $id, 
 			count => $count, 
 		}});
@@ -3393,7 +3779,7 @@ sub write
 				}});
 		}
 		
-		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { count => $count }});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { count => $count }});
 		if ($count)
 		{
 			# Commit the changes.
@@ -3401,7 +3787,7 @@ sub write
 		}
 	}
 	
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { count => $count }});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { count => $count }});
 	if ($count)
 	{
 		# Free up some memory.
@@ -3520,7 +3906,7 @@ sub _archive_table
 		column_count => $column_count 
 	}});
 	
-	print Dumper $columns;
+	#print Dumper $columns;
 	
 	# See m2's DB->archive_if_needed() for old version of this.
 	

@@ -14,12 +14,14 @@ my $THIS_FILE = "Storage.pm";
 ### Methods;
 # change_mode
 # change_owner
+# check_md5sums
 # copy_file
 # find
 # make_directory
 # read_config
 # read_file
 # read_mode
+# record_md5sums
 # search_directories
 # write_file
 
@@ -245,6 +247,87 @@ sub change_owner
 	}
 	
 	return($error);
+}
+
+=head2 check_md5sums
+
+This is one half of a tool to let daemons detect when something they use has changed on disk and restart if any changes are found.
+
+This checks the md5sum of the calling application and all perl modules that are loaded and compares them against the sums seem earlier via C<< record_md5sums >>. If any sums don't match, C<< 1 >> is returned. If no changes were seen, C<< 0 >> is returned.
+
+=cut
+sub check_md5sums
+{
+	my $self      = shift;
+	my $parameter = shift;
+	my $anvil     = $self->parent;
+	
+	# We'll set this if anything has changed.
+	my $exit   = 0;
+	my $caller = $0;
+	
+	# Have we changed?
+	$anvil->data->{md5sum}{$caller}{now} = $anvil->Get->md5sum({file => $0});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+		"md5sum::${caller}::start_time" => $anvil->data->{md5sum}{$caller}{start_time},
+		"md5sum::${caller}::now"        => $anvil->data->{md5sum}{$caller}{now},
+	}});
+	
+	if ($anvil->data->{md5sum}{$caller}{now} ne $anvil->data->{md5sum}{$caller}{start_time})
+	{
+		# Exit.
+		$exit = 1;
+		$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 0, priority => "warn", key => "message_0013", variables => { file => $0 }});
+	}
+	
+	# What about our modules?
+	foreach my $module (sort {$a cmp $b} keys %INC)
+	{
+		my $module_file = $INC{$module};
+		my $module_sum  = $anvil->Get->md5sum({file => $module_file});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+			module      => $module,
+			module_file => $module_file, 
+			module_sum  => $module_sum,
+		}});
+		
+		$anvil->data->{md5sum}{$module_file}{now} = $module_sum;
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+			"md5sum::${module_file}::start_time" => $anvil->data->{md5sum}{$module_file}{start_time},
+			"md5sum::${module_file}::now"        => $anvil->data->{md5sum}{$module_file}{now},
+		}});
+		if ($anvil->data->{md5sum}{$module_file}{start_time} ne $anvil->data->{md5sum}{$module_file}{now})
+		{
+			# Changed.
+			$exit = 1;
+			$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 0, priority => "warn", key => "message_0013", variables => { file => $module_file }});
+		}
+	}
+	
+	# Record sums for word files.
+	foreach my $file (sort {$a cmp $b} keys %{$anvil->data->{words}})
+	{
+		my $words_sum = $anvil->Get->md5sum({file => $file});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+			file      => $file,
+			words_sum => $words_sum, 
+		}});
+		
+		$anvil->data->{md5sum}{$file}{now} = $words_sum;
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+			"md5sum::${file}::start_time" => $anvil->data->{md5sum}{$file}{start_time}, 
+			"md5sum::${file}::now"        => $anvil->data->{md5sum}{$file}{now}, 
+		}});
+		if ($anvil->data->{md5sum}{$file}{start_time} ne $anvil->data->{md5sum}{$file}{now})
+		{
+			$exit = 1;
+			$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 0, priority => "warn", key => "message_0013", variables => { file => $file }});
+		}
+	}
+	
+	# Exit?
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 'exit' => $exit }});
+	return($exit);
 }
 
 =head2 copy_file
@@ -775,6 +858,52 @@ sub read_mode
 	return($say_mode);
 }
 
+=head2 record_md5sums
+
+This is one half of a tool to let daemons detect when something they use has changed on disk and restart if any changes are found.
+
+This records the md5sum of the calling application and all perl modules that are loaded. The values stored here will be compared against C<< check_md5sums >> later.
+
+=cut
+sub record_md5sums
+{
+	my $self      = shift;
+	my $parameter = shift;
+	my $anvil     = $self->parent;
+	
+	my $caller = $0;
+	$anvil->data->{md5sum}{$caller}{start_time} = $anvil->Get->md5sum({file => $0});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { "md5sum::${caller}::start_time" => $anvil->data->{md5sum}{$caller}{start_time} }});
+	foreach my $module (sort {$a cmp $b} keys %INC)
+	{
+		my $module_file = $INC{$module};
+		my $module_sum  = $anvil->Get->md5sum({file => $module_file});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+			module      => $module,
+			module_file => $module_file, 
+			module_sum  => $module_sum,
+		}});
+		
+		$anvil->data->{md5sum}{$module_file}{start_time} = $module_sum;
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { "md5sum::${module_file}::start_time" => $anvil->data->{md5sum}{$module_file}{start_time} }});
+	}
+	
+	# Record sums for word files.
+	foreach my $file (sort {$a cmp $b} keys %{$anvil->data->{words}})
+	{
+		my $words_sum = $anvil->Get->md5sum({file => $file});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+			file      => $file,
+			words_sum => $words_sum, 
+		}});
+		
+		$anvil->data->{md5sum}{$file}{start_time} = $words_sum;
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { "md5sum::${file}::start_time" => $anvil->data->{md5sum}{$file}{start_time} }});
+	}
+	
+	return(0);
+}
+
 =head2 search_directories
 
 This method returns an array reference of directories to search within for files and directories.
@@ -844,7 +973,16 @@ sub search_directories
 			# Convert '.' to $ENV{PWD}
 			if ($directory eq ".")
 			{
-				$directory = $ENV{PWD};
+				# When run from systemd, there is no PWD environment variable, so we'll do a system call.
+				if ($ENV{PWD})
+				{
+					$directory = $ENV{PWD};
+				}
+				else
+				{
+					# pwd returns '/', which isn't helpful, so we'll skip this.
+					next;
+				}
 			}
 			
 			# Skip duplicates

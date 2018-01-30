@@ -1,0 +1,58 @@
+#!/usr/bin/perl
+# 
+# This module handles running jobs that might take some time to complete.
+#
+# Exit codes;
+# 0 = Normal exit
+# 1 = md5sum of this program changed. Exited to reload.
+# 
+# TODO: 
+# 
+
+use strict;
+use warnings;
+use Anvil::Tools;
+
+my $THIS_FILE           =  ($0 =~ /^.*\/(.*)$/)[0];
+my $running_directory   =  ($0 =~ /^(.*?)\/$THIS_FILE$/)[0];
+if (($running_directory =~ /^\./) && ($ENV{PWD}))
+{
+	$running_directory =~ s/^\./$ENV{PWD}/;
+}
+
+# Turn off buffering so that the pinwheel will display while waiting for the SSH call(s) to complete.
+$| = 1;
+
+my $anvil = Anvil::Tools->new();
+$anvil->Log->level({set => 2});
+
+# Calculate my sum so that we can exit if it changes later.
+$anvil->Storage->record_md5sums;
+
+# These are the things we always want running.
+while(1)
+{
+	# Loop and sleep for 2s.
+	# TODO: DO THINGS HERE
+	
+	# Exit if called with '--run-once'
+	if ($anvil->data->{switches}{'run-once'})
+	{
+		$anvil->nice_exit({code => 0});
+	}
+	
+	# Has the file on disk changed?
+	if ($anvil->Storage->check_md5sums)
+	{
+		$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 0, priority => "warn", key => "message_0014"});
+		$anvil->nice_exit({code => 1});
+	}
+	
+	sleep 2;
+}
+
+$anvil->nice_exit({code => 0});
+
+#############################################################################################################
+# Functions                                                                                                 #
+#############################################################################################################

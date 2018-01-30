@@ -1,0 +1,12 @@
+[Unit]
+Description=Anvil! Intelligent Availability Platform - Daemon for handling jobs that take some time to complete
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/anvil/anvil-jobs
+ExecStop=/bin/kill -WINCH ${MAINPID}
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

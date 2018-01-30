@@ -1,5 +1,12 @@
 All systems have a UUID, even VMs. Use that for system UUID in the future.
 
+virt-manager stores information in dconf-editor -> /org/virt-manager/virt-manager/connections ($HOME/.config/dconf/user)
+
+==== dconf read /org/virt-manager/virt-manager/connections/uris 
+['qemu+ssh://root@localhost/system', 'qemu+ssh://root@wp-a01n02.remote/system', 'qemu+ssh://root@an-nas02.kw01.alteeve.ca/system', 'qemu+ssh://root@hb-a01n01.remote/system', 'qemu+ssh://root@hb-a01n02.remote/system', 'qemu:///system']
+==== dconf read /org/virt-manager/virt-manager/connections/autoconnect 
+['qemu+ssh://root@localhost/system']
+====
 
 
 

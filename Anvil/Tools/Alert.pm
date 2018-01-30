@@ -114,11 +114,12 @@ sub check_alert_sent
 	my $parameter = shift;
 	my $anvil     = $self->parent;
 	
-	my $modified_date  = $parameter->{modified_date}  ? $parameter->{modified_date}  : $anvil->data->{sys}{db_timestamp};
-	my $name           = $parameter->{name}           ? $parameter->{name}           : "";
-	my $record_locator = $parameter->{record_locator} ? $parameter->{record_locator} : "";
-	my $set_by         = $parameter->{set_by}         ? $parameter->{set_by}         : "";
-	my $type           = $parameter->{type}           ? $parameter->{type}           : "";
+	my $debug          = defined $parameter->{debug}          ? $parameter->{debug}          : 3;
+	my $modified_date  = defined $parameter->{modified_date}  ? $parameter->{modified_date}  : $anvil->data->{sys}{db_timestamp};
+	my $name           = defined $parameter->{name}           ? $parameter->{name}           : "";
+	my $record_locator = defined $parameter->{record_locator} ? $parameter->{record_locator} : "";
+	my $set_by         = defined $parameter->{set_by}         ? $parameter->{set_by}         : "";
+	my $type           = defined $parameter->{type}           ? $parameter->{type}           : "";
 	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
 		modified_date  => $modified_date, 
 		name           => $name, 
@@ -172,7 +173,7 @@ sub check_alert_sent
 	
 	my $query = "
 SELECT 
-    COUNT(*) 
+    alert_sent_uuid 
 FROM 
     alert_sent 
 WHERE 
@@ -184,16 +185,17 @@ AND
 AND 
     alert_name           = ".$anvil->data->{sys}{use_db_fh}->quote($name)."
 ;";
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { query => $query }});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { query => $query }});
 	
 	# Now, if this is type=set, register the alert if it doesn't exist. If it is type=clear, remove the 
 	# alert if it exists.
-	my $count = $anvil->Database->query({query => $query, source => $THIS_FILE, line => __LINE__})->[0]->[0];
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
-		type  => $type,
-		count => $count,
+	my $alert_sent_uuid = $anvil->Database->query({query => $query, source => $THIS_FILE, line => __LINE__})->[0]->[0];
+	   $alert_sent_uuid = "" if not defined $alert_sent_uuid;
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { 
+		type            => $type,
+		alert_sent_uuid => $alert_sent_uuid,
 	}});
-	if (($type eq "set") && (not $count))
+	if (($type eq "set") && (not $alert_sent_uuid))
 	{
 		### New alert
 		# Make sure this host is in the database... It might not be on the very first run of ScanCore
@@ -209,10 +211,10 @@ FROM
 WHERE 
     host_uuid = ".$anvil->data->{sys}{use_db_fh}->quote($anvil->data->{sys}{host_uuid})."
 ;";
-			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { query => $query }});
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { query => $query }});
 
 			my $count = $anvil->Database->query({query => $query, source => $THIS_FILE, line => __LINE__})->[0]->[0];
-			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { count => $count }});
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { count => $count }});
 			
 			if (not $count)
 			{
@@ -229,7 +231,7 @@ WHERE
 			else
 			{
 				$anvil->data->{sys}{host_is_in_db} = 1;
-				$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 'sys::host_is_in_db' => $anvil->data->{sys}{host_is_in_db} }});
+				$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { 'sys::host_is_in_db' => $anvil->data->{sys}{host_is_in_db} }});
 			}
 		}
 		
@@ -238,12 +240,14 @@ WHERE
 INSERT INTO 
     alert_sent 
 (
+    alert_sent_uuid, 
     alert_sent_host_uuid, 
     alert_set_by, 
     alert_record_locator, 
     alert_name, 
     modified_date
 ) VALUES (
+    ".$anvil->data->{sys}{use_db_fh}->quote($anvil->Get->uuid).", 
     ".$anvil->data->{sys}{use_db_fh}->quote($anvil->data->{sys}{host_uuid}).", 
     ".$anvil->data->{sys}{use_db_fh}->quote($set_by).", 
     ".$anvil->data->{sys}{use_db_fh}->quote($record_locator).", 
@@ -251,13 +255,13 @@ INSERT INTO
     ".$anvil->data->{sys}{use_db_fh}->quote($anvil->data->{sys}{db_timestamp})."
 );
 ";
-		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { 
 			query => $query,
 			set   => $set, 
 		}});
 		$anvil->Database->write({query => $query, source => $THIS_FILE, line => __LINE__});
 	}
-	elsif (($type eq "clear") && ($count))
+	elsif (($type eq "clear") && ($alert_sent_uuid))
 	{
 		# Alert previously existed, clear it.
 		   $set   = 1;
@@ -265,22 +269,16 @@ INSERT INTO
 DELETE FROM 
     alert_sent 
 WHERE 
-    alert_sent_host_uuid = ".$anvil->data->{sys}{use_db_fh}->quote($anvil->data->{sys}{host_uuid})." 
-AND 
-    alert_set_by        = ".$anvil->data->{sys}{use_db_fh}->quote($set_by)." 
-AND 
-    alert_record_locator = ".$anvil->data->{sys}{use_db_fh}->quote($record_locator)." 
-AND 
-    alert_name           = ".$anvil->data->{sys}{use_db_fh}->quote($name)."
+    alert_sent_uuid = ".$anvil->data->{sys}{use_db_fh}->quote($alert_sent_uuid)." 
 ;";
-		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { 
 			query => $query,
 			set   => $set, 
 		}});
 		$anvil->Database->write({query => $query, source => $THIS_FILE, line => __LINE__});
 	}
 	
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { set => $set }});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { set => $set }});
 	return($set);
 }
 

@@ -13,9 +13,11 @@ our $VERSION  = "3.0.0";
 my $THIS_FILE = "Get.pm";
 
 ### Methods;
+# anvil_version
 # cgi
 # date_and_time
 # host_uuid
+# md5sum
 # network_details
 # switches
 # users_home
@@ -85,6 +87,80 @@ sub parent
 # Public methods                                                                                            #
 #############################################################################################################
 
+=head2 anvil_version
+
+This reads to C<< VERSION >> file of a local or remote machine. If the version file isn't found, C<< 0 >> is returned. 
+
+Parameters;
+
+=head3 password (optional)
+
+This is the password to use when connecting to a remote machine. If not set, but C<< target >> is, an attempt to connect without a password will be made.
+
+=head3 port (optional)
+
+This is the TCP port to use when connecting to a remote machine. If not set, but C<< target >> is, C<< 22 >> will be used.
+
+=head3 target (optional)
+
+This is the IP or host name of the machine to read the version of. If this is not set, the local system's version is checked.
+
+=cut
+sub anvil_version
+{
+	my $self      = shift;
+	my $parameter = shift;
+	my $anvil     = $self->parent;
+	
+	my $debug    = $parameter->{debug}    ? $parameter->{debug}    : 2;
+	my $password = $parameter->{password} ? $parameter->{password} : "";
+	my $port     = $parameter->{port}     ? $parameter->{port}     : "";
+	my $target   = $parameter->{target}   ? $parameter->{target}   : "local";
+	my $version  = 0;
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { 
+		password => $anvil->Log->secure ? $password : "--",
+		port     => $port, 
+		target   => $target, 
+	}});
+	
+	# Is this a local call or a remote call?
+	if (($target) && ($target ne "local") && ($target ne $anvil->_hostname) && ($target ne $anvil->_short_hostname))
+	{
+		# Remote call.
+		my $shell_call = "
+if [ -e ".$anvil->data->{path}{configs}{'anvil.version'}." ];
+then
+    cat ".$anvil->data->{path}{configs}{'anvil.version'}.";
+else
+   echo 0;
+fi;
+";
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { shell_call => $shell_call }});
+		$version = $anvil->System->remote_call({
+			shell_call => $shell_call, 
+			target     => $target,
+			port       => $port, 
+			password   => $password,
+		});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { version => $version }});
+	}
+	else
+	{
+		# Local.
+		$version = $anvil->Storage->read_file({file => $anvil->data->{path}{configs}{'anvil.version'}});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { version => $version }});
+		
+		# Did we actually read a version?
+		if ($version eq "!!error!!")
+		{
+			$version = 0;
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 1, list => { version => $version }});
+		}
+	}
+	
+	return($version);
+}
+
 =head2 cgi
 
 This reads in the CGI variables passed in by a form or URL.
@@ -153,7 +229,7 @@ sub cgi
 				   $anvil->data->{cgi}{$variable}{filehandle} = $cgi->upload($variable);
 				my $file                                   = $anvil->data->{cgi}{$variable}{filehandle};
 				   $anvil->data->{cgi}{$variable}{mimetype}   = $cgi->uploadInfo($file)->{'Content-Type'};
-				$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { 
+				$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
 					variable                       => $variable,
 					"cgi::${variable}::filehandle" => $anvil->data->{cgi}{$variable}{filehandle},
 					"cgi::${variable}::mimetype"   => $anvil->data->{cgi}{$variable}{mimetype},
@@ -232,7 +308,7 @@ sub cgi
 	
 	# Clear the last &
 	$anvil->data->{sys}{cgi_string} =~ s/&$//;
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { "sys::cgi_string" => $anvil->data->{sys}{cgi_string} }});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { "sys::cgi_string" => $anvil->data->{sys}{cgi_string} }});
 	
 	return(0);
 }
@@ -348,7 +424,9 @@ sub host_uuid
 	my $parameter = shift;
 	my $anvil     = $self->parent;
 	
-	my $set = defined $parameter->{set} ? $parameter->{set} : "";
+	my $debug = defined $parameter->{debug} ? $parameter->{debug} : 3;
+	my $set   = defined $parameter->{set}   ? $parameter->{set}   : "";
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { set => $set }});
 	
 	if ($set)
 	{
@@ -358,10 +436,11 @@ sub host_uuid
 	{
 		# Read dmidecode if I am root, and the cache if not.
 		my $uuid = "";
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { '$<' => $<, '$>' => $> }});
 		if (($< == 0) or ($> == 0))
 		{
 			my $shell_call = $anvil->data->{path}{exe}{dmidecode}." --string system-uuid";
-			#print $THIS_FILE." ".__LINE__."; [ Debug ] - shell_call: [$shell_call]\n";
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { shell_call => $shell_call }});
 			open(my $file_handle, $shell_call." 2>&1 |") or warn $THIS_FILE." ".__LINE__."; [ Warning ] - Failed to call: [".$shell_call."], the error was: $!\n";
 			while(<$file_handle>)
 			{
@@ -376,6 +455,7 @@ sub host_uuid
 		{
 			# Not running as root, so I have to rely on the cache file, or die if it doesn't 
 			# exist.
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { 'path::data::host_uuid' => $anvil->data->{path}{data}{host_uuid} }});
 			if (not -e $anvil->data->{path}{data}{host_uuid})
 			{
 				# We're done.
@@ -384,6 +464,7 @@ sub host_uuid
 			else
 			{
 				$uuid = $anvil->Storage->read_file({ file => $anvil->data->{path}{data}{host_uuid} });
+				$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { uuid => $uuid }});
 			}
 		}
 		
@@ -414,7 +495,44 @@ sub host_uuid
 		}
 	}
 	
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => $debug, list => { "HOST::UUID" => $anvil->data->{HOST}{UUID} }});
 	return($anvil->data->{HOST}{UUID});
+}
+
+=head2 md5sum
+
+This returns the C<< md5sum >> of a given file.
+
+Parameters;
+
+=head3 file
+
+This is the full or relative path to the file. If the file doesn't exist, an empty string is returned.
+
+=cut
+sub md5sum
+{
+	my $self      = shift;
+	my $parameter = shift;
+	my $anvil     = $self->parent;
+	
+	my $sum = "";
+	my $file = defined $parameter->{file} ? $parameter->{file} : "";
+	
+	if (-e $file)
+	{
+		my $shell_call = $anvil->data->{path}{exe}{md5sum}." ".$file;
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { shell_call => $shell_call }});
+		
+		my $return = $anvil->System->call({shell_call => $shell_call});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 'return' => $return }});
+		
+		# split the sum off.
+		$sum = ($return =~ /^(.*?)\s+$file$/)[0];
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { sum => $sum }});
+	}
+	
+	return($sum);
 }
 
 =head2 network_details
@@ -582,20 +700,20 @@ sub users_home
 	my $home_directory = 0;
 	
 	my $user = $parameter->{user} ? $parameter->{user} : "";
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { user => $user }});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { user => $user }});
 	
 	# Make sure the user is only one digit. Sometimes $< (and others) will return multiple IDs.
 	if ($user =~ /^\d+ \d$/)
 	{
 		$user =~ s/^(\d+)\s.*$/$1/;
-		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { user => $user }});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { user => $user }});
 	}
 	
 	# If the user is numerical, convert it to a name.
 	if ($user =~ /^\d+$/)
 	{
 		$user = getpwuid($user);
-		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { user => $user }});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { user => $user }});
 	}
 	
 	# Still don't have a name? fail...
@@ -607,14 +725,14 @@ sub users_home
 	}
 	
 	my $body = $anvil->Storage->read_file({file => $anvil->data->{path}{data}{passwd}});
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { body => $body }});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { body => $body }});
 	foreach my $line (split /\n/, $body)
 	{
-		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { line => $line }});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { line => $line }});
 		if ($line =~ /^$user:/)
 		{
 			$home_directory = (split/:/, $line)[5];
-			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { home_directory => $home_directory }});
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { home_directory => $home_directory }});
 			last;
 		}
 	}
@@ -625,7 +743,7 @@ sub users_home
 		$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 0, priority => "err", key => "log_0061", variables => { user => $user }});
 	}
 	
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { home_directory => $home_directory }});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { home_directory => $home_directory }});
 	return($home_directory);
 }
 
@@ -639,6 +757,7 @@ sub uuid
 	my $self = shift;
 	my $anvil   = $self->parent;
 	
+	### TODO: System calls are slow, find a pure-perl UUID generator
 	my $uuid = $anvil->System->call({shell_call => $anvil->data->{path}{exe}{uuidgen}." --random"});
 	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 1, list => { uuid => $uuid }});
 	

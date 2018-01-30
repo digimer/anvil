@@ -34,6 +34,8 @@ Author:  Madison Kelly <mkelly@alteeve.ca>
 		<key name="message_0010">The SSH session to: [#!variable!target!#] was closed because 'no_cache' was set and there was an open SSH connection.</key>
 		<key name="message_0011">Wrote the system UUID to the file: [#!variable!file!#] to enable the web based tools to read this system's UUID.</key>
 		<key name="message_0012">Wrote the journald config file: [#!variable!file!#] to disable rate limiting to ensure high log levels are not lost.</key>
+		<key name="message_0013">The md5sum of: [#!variable!file!#] has changed since the daemon started.</key>
+		<key name="message_0014">Exiting to reload.</key>
 		
 		<!-- Log entries -->
 		<key name="log_0001">Starting: [#!variable!program!#].</key>
@@ -203,7 +205,17 @@ The database connection error was:
 		<key name="log_0132">Connected to: [#!variable!connections!#] database(s).</key>
 		<key name="log_0133">Failed to read the system UUID. Received a non-UUID string: [#!variable!uuid!#]. Is the user: [#!variable!user!#] in the 'kmem' group?</key>
 		<key name="log_0134">The read host UUID: [#!variable!uuid!#] does not appear to be a valid UUID.</key>
-		<key name="log_0135">Runtime was approximately: [#!variable!runtime!#].</key>
+		<key name="log_0135">Runtime was approximately: [#!variable!runtime!#] seconds.</key>
+		<key name="log_0136"><![CDATA[[ Error ] - The method: [#!variable!method!#] was called with either 'job_uuid': [#!variable!job_uuid!#] not being passed (or was not a valid UUID), or 'job_name': [#!variable!job_name!#] not being passed.]]></key>
+		<key name="log_0137"><![CDATA[[ Error ] - The method: [#!variable!method!#] was called with an invalid value for: [#!variable!variable_name!#]: -> [#!variable!variable_value!#]. See 'perldoc Anvil::Tools::#!variable!module!#' for valid options.]]></key>
+		<key name="log_0138"><![CDATA[[ Error ] - The method: [#!variable!method!#] was with an invalid 'job_progress': [#!variable!job_progress!#]. It needs to be a whole-number value between 0 and 100, inclusive.]]></key>
+		<key name="log_0139"><![CDATA[[ Error ] - Failed to initialized the database! The file: [#!variable!file!#] already exists, which should not be the case when initializing the database.]]></key>
+		<key name="log_0140"><![CDATA[[ Error ] - Failed to initialized the database! Information on why this failed might be found in: [#!variable!file!#].]]></key>
+		<key name="log_0141"><![CDATA[[ Error ] - The system call: [#!variable!system_call!#] will fail because the program: [#!variable!program!#] doesn't exist.]]></key>
+		<key name="log_0142"><![CDATA[[ Error ] - The system call: [#!variable!system_call!#] will fail because the program: [#!variable!program!#] isn't executable.]]></key>
+		<key name="log_0143">Failed to find a local ID, no databases are stored on this machine.</key>
+		<key name="log_0144">PostgreSQL server is not installed, unable to proceed.</key>
+		<key name="log_0145"><![CDATA[[ Warning ] - Unable to use the database on the host: [#!variable!host!#]. The local Anvil! version is: [#!variable!local_version!#], and the target host's is: [#!variable!target_version!#]. If you are upgrading, we will resync and use it once the host and our version is again the same.]]></key>
 		
 		<!-- Test words. Do NOT change unless you update 't/Words.t' or tests will needlessly fail. -->
 		<key name="t_0000">Test</key>

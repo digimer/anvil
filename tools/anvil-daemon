@@ -3,8 +3,13 @@
 # This is the master daemon that manages all periodically run processes on Striker dashboards and Anvil! 
 # nodes.
 #
-# TODO: At somepoint, we'll need to have a mechanism to fire off processes that might take a long time.
+# Exit codes;
+# 0 = Normal exit
+# 1 = md5sum of this program changed. Exited to reload.
 # 
+# TODO: 
+# 
+
 use strict;
 use warnings;
 use Anvil::Tools;
@@ -25,18 +30,29 @@ $anvil->Log->level({set => 2});
 # There are some things we only want to run on (re)start and don't need to always run.
 run_once($anvil);
 
+# Calculate my sum so that we can exit if it changes later.
+$anvil->Storage->record_md5sums;
+
 # These are the things we always want running.
 while(1)
 {
 	# Loop and sleep for 2s.
 	keep_running($anvil);
 	
-	
 	# Exit if called with '--run-once'
 	if ($anvil->data->{switches}{'run-once'})
 	{
 		$anvil->nice_exit({code => 0});
 	}
+	
+	# Has the file on disk changed?
+	if ($anvil->Storage->check_md5sums)
+	{
+		$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 0, priority => "warn", key => "message_0014"});
+		$anvil->nice_exit({code => 1});
+	}
+	
+	# Sleep now.
 	sleep 2;
 }
 
@@ -53,11 +69,11 @@ sub run_once
 	
 	# Check that the database is ready.
 	my $shell_call = $anvil->data->{path}{exe}{'anvil-prep-database'};
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { shell_call => $shell_call }});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { shell_call => $shell_call }});
 	my $database_output = $anvil->System->call({shell_call => $shell_call, source => $THIS_FILE, line => __LINE__});
 	if ($database_output)
 	{
-		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { database_output => $database_output }});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { database_output => $database_output }});
 	}
 	
 	return(0);
@@ -81,12 +97,12 @@ sub update_state_file
 	my ($anvil) = @_;
 	
 	my $shell_call = $anvil->data->{path}{exe}{'anvil-update-states'};
-	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { shell_call => $shell_call }});
+	$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { shell_call => $shell_call }});
 	
 	my $states_output = $anvil->System->call({shell_call => $shell_call, source => $THIS_FILE, line => __LINE__});
 	if ($states_output)
 	{
-		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 2, list => { states_output => $states_output }});
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { states_output => $states_output }});
 	}
 	
 	return(0);

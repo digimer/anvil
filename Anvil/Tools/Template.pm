@@ -125,7 +125,7 @@ sub get
 	my $file      = defined $parameter->{file}      ? $parameter->{file}      : "";
 	my $language  = defined $parameter->{language}  ? $parameter->{language}  : $anvil->Words->language;
 	my $name      = defined $parameter->{name}      ? $parameter->{name}      : "";
-	my $show_name = defined $parameter->{show_name} ? $parameter->{show_name} : 0;
+	my $show_name = defined $parameter->{show_name} ? $parameter->{show_name} : 1;
 	my $skin      = defined $parameter->{skin}      ? $parameter->{skin}      : $anvil->Template->skin;
 	my $variables = defined $parameter->{variables} ? $parameter->{variables} : "";
 	   $skin      = $anvil->data->{path}{directories}{skins}."/".$skin;

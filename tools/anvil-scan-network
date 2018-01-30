@@ -1,0 +1,111 @@
+#!/usr/bin/perl
+# 
+# This daemon watches for network changes and updates a cache file when changes are found.
+# 
+# NOTE: This daemon does NOT connect to the databases. This is meant to be as quick as possible and to use as 
+#       few resources as possible. It will exit with 'ok' or 'change' depending on if something in the 
+#       network changed.
+#
+# Exit codes;
+# 0 = Normal exit
+# 
+# TODO: 
+# 
+
+use strict;
+use warnings;
+use Time::HiRes qw(gettimeofday tv_interval);
+my $start_time = [gettimeofday];
+use Anvil::Tools;
+
+my $THIS_FILE           =  ($0 =~ /^.*\/(.*)$/)[0];
+my $running_directory   =  ($0 =~ /^(.*?)\/$THIS_FILE$/)[0];
+if (($running_directory =~ /^\./) && ($ENV{PWD}))
+{
+	$running_directory =~ s/^\./$ENV{PWD}/;
+}
+
+# Turn off buffering so that the pinwheel will display while waiting for the SSH call(s) to complete.
+$| = 1;
+
+my $anvil = Anvil::Tools->new();
+$anvil->Log->level({set => 2});
+
+scan($anvil);
+
+my $total = tv_interval ($start_time, [gettimeofday]);
+print "Total runtime: [".$total."]\n";
+$anvil->nice_exit({exit_code => 0});
+
+
+#############################################################################################################
+# Functions                                                                                                 #
+#############################################################################################################
+
+sub scan
+{
+	my ($anvil) = @_;
+	
+	my $directory = $anvil->data->{path}{sysfs}{network_interfaces};
+	print $THIS_FILE." ".__LINE__."; directory: [".$directory."]\n";
+	local(*DIRECTORY);
+	$anvil->Log->entry({source => $THIS_FILE, line => __LINE__, level => 3, key => "log_0018", variables => { directory => $directory }});
+	opendir(DIRECTORY, $directory);
+	while(my $file = readdir(DIRECTORY))
+	{
+		next if $file eq ".";
+		next if $file eq "..";
+		next if $file eq "lo";
+		my $full_path = "$directory/$file";
+		print $THIS_FILE." ".__LINE__."; full_path: [".$full_path."]\n";
+		$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { full_path => $full_path }});
+		if (-d $full_path)
+		{
+			# Pull out the data I want. Note that some of these don't exist with virtio-net interfaces.
+			my $interface   = $file;
+			my $mac_address = -e $full_path."/address"   ? $anvil->Storage->read_file({file => $full_path."/address"})   : "";
+			my $link_state  = -e $full_path."/carrier"   ? $anvil->Storage->read_file({file => $full_path."/carrier"})   : 0;
+			my $mtu         = -e $full_path."/mtu"       ? $anvil->Storage->read_file({file => $full_path."/mtu"})       : 0;
+			my $duplex      = -e $full_path."/duplex"    ? $anvil->Storage->read_file({file => $full_path."/duplex"})    : "unknown";	# full or half?
+			my $operational = -e $full_path."/operstate" ? $anvil->Storage->read_file({file => $full_path."/operstate"}) : "unknown";	# up or down
+			my $speed       = $link_state ? $anvil->Storage->read_file({file => $full_path."/speed"}) : 0;	# Mbps (ie: 1000 = Gbps), gives a very high number for unplugged link
+			if ($speed > 100000)
+			{
+				# NOTE: This is probably 0 now... Though someday >100 Gbps will be reasonable
+				#       and we'll need to change this.
+				$speed = 0;
+			}
+			
+			# Find the media, if possible.
+			my $media      = "unknown";
+			my $shell_call = $anvil->data->{path}{exe}{ethtool}." $interface";
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { shell_call => $shell_call }});
+			my $ethtool    = $anvil->System->call({shell_call => $shell_call});
+			foreach my $line (split/\n/, $ethtool)
+			{
+				$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { line => $line }});
+				if ($line =~ /Supported ports: \[ (.*?) \]/i)
+				{
+					$media = lc($1);
+					$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { media => $media }});
+					last;
+				}
+			}
+			
+			# Log
+			$anvil->Log->variables({source => $THIS_FILE, line => __LINE__, level => 3, list => { 
+				interface   => $interface, 
+				mac_address => $mac_address, 
+				link_state  => $link_state, 
+				mtu         => $mtu, 
+				duplex      => $duplex,
+				operational => $operational,
+				speed       => $speed,
+				media       => $media, 
+			}});
+		}
+	}
+	closedir(DIRECTORY);
+	
+	return(0);
+}
