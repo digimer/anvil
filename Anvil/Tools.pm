@@ -43,6 +43,7 @@ use Anvil::Tools::Database;
 use Anvil::Tools::Convert;
 use Anvil::Tools::Get;
 use Anvil::Tools::Log;
+use Anvil::Tools::NetworkScan;
 use Anvil::Tools::Storage;
 use Anvil::Tools::System;
 use Anvil::Tools::Template;
@@ -118,6 +119,7 @@ sub new
 			CONVERT				=>	Anvil::Tools::Convert->new(),
 			GET				=>	Anvil::Tools::Get->new(),
 			LOG				=>	Anvil::Tools::Log->new(),
+			NETWORKSCAN				=>	Anvil::Tools::NetworkScan->new(),
 			STORAGE				=>	Anvil::Tools::Storage->new(),
 			SYSTEM				=>	Anvil::Tools::System->new(),
 			TEMPLATE			=>	Anvil::Tools::Template->new(),
@@ -151,6 +153,7 @@ sub new
 	$anvil->Convert->parent($anvil);
 	$anvil->Get->parent($anvil);
 	$anvil->Log->parent($anvil);
+	$anvil->NetworkScan->parent($anvil);
 	$anvil->Storage->parent($anvil);
 	$anvil->System->parent($anvil);
 	$anvil->Template->parent($anvil);
@@ -412,6 +415,18 @@ sub Log
 	my $self = shift;
 	
 	return ($self->{HANDLE}{LOG});
+}
+
+=head2 NetworkScan
+
+Access the C<NetworkScan.pm> methods via 'C<< $anvil->NetworkScan->method >>'.
+
+=cut
+sub NetworkScan
+{
+	my $self = shift;
+
+	return ($self->{HANDLE}{NETWORKSCAN});
 }
 
 =head2 Storage
