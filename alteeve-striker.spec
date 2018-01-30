@@ -7,7 +7,7 @@ Summary:        Alteeve Anvil! Striker dashboard
 
 License:        GPLv2+
 URL:            https://github.com/Seneca-CDOT/anvil
-Source0:        https://github.com/Seneca-CDOT/anvil/archive/master.tar.gz
+Source0:        https://github.com/Seneca-CDOT/anvil/archive/combined-branches.tar.gz
 BuildArch:      noarch
 
 Conflicts:      iptables-services
@@ -29,7 +29,7 @@ Web interface of the Striker dashboard for Alteeve Anvil! systems
 
 
 %prep
-%autosetup -n anvil-master
+%autosetup -n anvil-combined-branches
 
 
 %build
@@ -52,7 +52,6 @@ cp -R -p units/* %{buildroot}/usr/lib/systemd/system/
 cp -R -p tools/* %{buildroot}/usr/sbin/
 cp -R -p anvil.conf %{buildroot}/etc/anvil/
 mv %{buildroot}/%{_sbindir}/anvil.sql %{buildroot}/%{_datarootdir}/anvil.sql
-mv %{buildroot}/%{_sbindir}/words.xml %{buildroot}/%{_datarootdir}/words.xml
 
 
 %files
@@ -61,9 +60,8 @@ mv %{buildroot}/%{_sbindir}/words.xml %{buildroot}/%{_datarootdir}/words.xml
 %{_sbindir}/*
 %{_datarootdir}/perl5/Anvil/*
 %{_datarootdir}/anvil.sql
-%{_datarootdir}/words.xml
 %{_var}/www/*
-%{_usr}/lib/systemd/system/anvil-daemon.service
+%{_usr}/lib/systemd/system/*
 
 
 %changelog
