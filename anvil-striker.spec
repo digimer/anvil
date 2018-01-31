@@ -1,8 +1,8 @@
 %define debug_package %{nil}
-Name:           anvil-striker
+Name:           anvil
 Version:        3.0
 Release:        1%{?dist}
-Summary:        Alteeve Anvil! Striker dashboard
+Summary:        Alteeve Anvil! complete package
 
 
 License:        GPLv2+
@@ -23,9 +23,26 @@ Requires:       rsync
 Requires:       perl-Log-Journald
 Requires:       perl-Net-SSH2
 Requires:       httpd
+Requires:       firewalld
 
 %description
+This package generates the anvil-core, anvil-striker, and anvil-node RPM's
+
+%package core
+Summary:        Alteeve Anvil! Core package
+%description core
+Common base libraries required for the Anvil! system
+
+%package striker
+Summary:        Alteeve Anvil! Striker dashboard package
+%description striker
 Web interface of the Striker dashboard for Alteeve Anvil! systems
+
+
+#%package node
+#Summary:        Alteeve Anvil! Node package
+#%description node
+#<placeholder for node description>
 
 
 %prep
@@ -54,14 +71,21 @@ cp -R -p anvil.conf %{buildroot}/etc/anvil/
 mv %{buildroot}/%{_sbindir}/anvil.sql %{buildroot}/%{_datarootdir}/anvil.sql
 
 
-%files
+%files core
 %doc README.md notes
 %config(noreplace) %{_sysconfdir}/anvil/anvil.conf
+%config(noreplace) %{_datarootdir}/anvil.sql
+%{_datarootdir}/*
+%{_usr}/lib/*
 %{_sbindir}/*
-%{_datarootdir}/perl5/Anvil/*
-%{_datarootdir}/anvil.sql
-%{_var}/www/*
-%{_usr}/lib/systemd/system/*
+
+
+%files striker
+%attr(0775, apache, anvil) %{_var}/www/*
+
+
+#%files node
+#<placeholder for node specific files>
 
 
 %changelog
