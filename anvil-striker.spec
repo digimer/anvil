@@ -1,6 +1,6 @@
 %define debug_package %{nil}
 Name:           anvil
-Version:        3.0
+Version:        3.0a
 Release:        1%{?dist}
 Summary:        Alteeve Anvil! complete package
 
@@ -54,34 +54,37 @@ Web interface of the Striker dashboard for Alteeve Anvil! systems
 
 %install
 rm -rf $RPM_BUILD_ROOT
-mkdir -p %{buildroot}/usr/sbin/anvil/
-mkdir -p %{buildroot}/etc/anvil/
-mkdir -p %{buildroot}/var/www/
-install -d -p Anvil %{buildroot}/usr/share/perl5/
-install -d -p html %{buildroot}/var/www/
-install -d -p cgi-bin %{buildroot}/var/www/
+mkdir -p %{buildroot}/%{_sbindir}/anvil/
+mkdir -p %{buildroot}/%{_sysconfdir}/anvil/
+mkdir -p %{buildroot}/%{_localstatedir}/www/
+install -d -p Anvil %{buildroot}/%{_datadir}/perl5/
+install -d -p html %{buildroot}/%{_localstatedir}/www/
+install -d -p cgi-bin %{buildroot}/%{_localstatedir}/www/
 install -d -p units/ %{buildroot}/usr/lib/systemd/system/
-install -d -p tools/ %{buildroot}/usr/sbin/
-cp -R -p Anvil %{buildroot}/usr/share/perl5/
-cp -R -p html %{buildroot}/var/www/
-cp -R -p cgi-bin %{buildroot}/var/www/
+install -d -p tools/ %{buildroot}/%{_sbindir}/
+cp -R -p Anvil %{buildroot}/%{_datadir}/perl5/
+cp -R -p html %{buildroot}/%{_localstatedir}/www/
+cp -R -p cgi-bin %{buildroot}/%{_localstatedir}/www/
 cp -R -p units/* %{buildroot}/usr/lib/systemd/system/
-cp -R -p tools/* %{buildroot}/usr/sbin/
-cp -R -p anvil.conf %{buildroot}/etc/anvil/
-mv %{buildroot}/%{_sbindir}/anvil.sql %{buildroot}/%{_datarootdir}/anvil.sql
+cp -R -p tools/* %{buildroot}/%{_sbindir}
+cp -R -p anvil.conf %{buildroot}/%{_sysconfdir}/anvil/
+cp -R -p anvil.version %{buildroot}/%{_sysconfdir}/anvil/
+mv %{buildroot}/%{_sbindir}/anvil.sql %{buildroot}/%{_datadir}/anvil.sql
+sed -i "1s/^.*$/%{version}/" %{buildroot}/%{_sysconfdir}/anvil/anvil.version
 
 
 %files core
 %doc README.md notes
 %config(noreplace) %{_sysconfdir}/anvil/anvil.conf
-%config(noreplace) %{_datarootdir}/anvil.sql
-%{_datarootdir}/*
+%config(noreplace) %{_datadir}/anvil.sql
 %{_usr}/lib/*
 %{_sbindir}/*
+%{_sysconfdir}/anvil/anvil.version
+%{_datadir}/perl5/*
 
 
 %files striker
-%attr(0775, apache, anvil) %{_var}/www/*
+%attr(0775, apache, anvil) %{_localstatedir}/www/*
 
 
 #%files node
@@ -89,5 +92,5 @@ mv %{buildroot}/%{_sbindir}/anvil.sql %{buildroot}/%{_datarootdir}/anvil.sql
 
 
 %changelog
-* Fri Jan 26 2018 Matthew Marangoni <matthew.marangoni@senecacollege.ca> 3.0-1
+* Fri Jan 26 2018 Matthew Marangoni <matthew.marangoni@senecacollege.ca> 3.0a-1
 - Initial RPM release
