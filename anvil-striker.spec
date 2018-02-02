@@ -73,6 +73,10 @@ mv %{buildroot}/%{_sbindir}/anvil.sql %{buildroot}/%{_datadir}/anvil.sql
 sed -i "1s/^.*$/%{version}/" %{buildroot}/%{_sysconfdir}/anvil/anvil.version
 
 
+%post
+restorecon -rv %{buildroot}/%{_localstatedir}/www
+
+
 %files core
 %doc README.md notes
 %config(noreplace) %{_sysconfdir}/anvil/anvil.conf
