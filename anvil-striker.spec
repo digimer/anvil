@@ -12,35 +12,43 @@ BuildArch:      noarch
 
 Conflicts:      iptables-services
 
+
+%description
+This package generates the anvil-core, anvil-striker, and anvil-node RPM's
+
+
+%package core
+Summary:        Alteeve Anvil! Core package
 Requires:       perl-XML-Simple
-Requires:       postgresql-server
 Requires:       postgresql-plperl
 Requires:       postgresql-contrib
-Requires:       perl-CGI
 Requires:       perl-NetAddr-IP
 Requires:       perl-DBD-Pg
 Requires:       rsync
 Requires:       perl-Log-Journald
 Requires:       perl-Net-SSH2
-Requires:       httpd
 Requires:       firewalld
 
-%description
-This package generates the anvil-core, anvil-striker, and anvil-node RPM's
 
-%package core
-Summary:        Alteeve Anvil! Core package
 %description core
 Common base libraries required for the Anvil! system
 
+
 %package striker
 Summary:        Alteeve Anvil! Striker dashboard package
+Requires:       postgresql-server
+Requires:       perl-CGI
+Requires:       httpd
+
+
 %description striker
 Web interface of the Striker dashboard for Alteeve Anvil! systems
 
 
 #%package node
 #Summary:        Alteeve Anvil! Node package
+#Requires:
+
 #%description node
 #<placeholder for node description>
 
