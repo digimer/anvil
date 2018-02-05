@@ -36,6 +36,7 @@ Common base libraries required for the Anvil! system
 
 %package striker
 Summary:        Alteeve Anvil! Striker dashboard package
+BuildRequires:  httpd
 Requires:       postgresql-server
 Requires:       perl-CGI
 Requires:       httpd
