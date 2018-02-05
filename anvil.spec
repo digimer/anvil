@@ -10,8 +10,6 @@ URL:            https://github.com/Seneca-CDOT/anvil
 Source0:        https://github.com/Seneca-CDOT/anvil/archive/combined-branches.tar.gz
 BuildArch:      noarch
 
-Conflicts:      iptables-services
-
 
 %description
 This package generates the anvil-core, anvil-striker, and anvil-node RPM's
@@ -28,6 +26,8 @@ Requires:       rsync
 Requires:       perl-Log-Journald
 Requires:       perl-Net-SSH2
 Requires:       firewalld
+Conflicts:      iptables-services
+# iptables-services conflicts with firewalld
 
 
 %description core
