@@ -170,7 +170,7 @@ sub get_snmp_var {
 
 sub get_model_list {
   my $json_text = "";
-  open(my $fh, '<:utf8', '/usr/sbin/anvil/snmp-models.json');
+  open(my $fh, '<:utf8', '/etc/anvil/snmp-models.json');
   while (my $row = <$fh>) {
     chomp $row;
     $json_text .= $row;
@@ -185,7 +185,7 @@ sub get_model_list {
 sub get_vendor_list {
   my %vendors;
 
-  if (open(my $fh, '<:utf8', '/usr/sbin/anvil/snmp-vendors.txt')) {
+  if (open(my $fh, '<:utf8', '/etc/anvil/snmp-vendors.txt')) {
     while (my $row = <$fh>) {
       chomp $row;
       my @vendor = split(/\t\t/, $row);
