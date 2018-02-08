@@ -79,7 +79,7 @@ cp -R -p tools/* %{buildroot}/%{_sbindir}
 cp -R -p anvil.conf %{buildroot}/%{_sysconfdir}/anvil/
 cp -R -p anvil.version %{buildroot}/%{_sysconfdir}/anvil/
 mv %{buildroot}/%{_sbindir}/anvil.sql %{buildroot}/%{_datadir}/anvil.sql
-mv %{buildroot}/%{_sbindir}/snmp_models.json %{buildroot}/%{_sysconfdir}/anvil/snmp_models.json
+mv %{buildroot}/%{_sbindir}/snmp-models.json %{buildroot}/%{_sysconfdir}/anvil/snmp-models.json
 sed -i "1s/^.*$/%{version}/" %{buildroot}/%{_sysconfdir}/anvil/anvil.version
 
 
