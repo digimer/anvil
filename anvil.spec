@@ -100,7 +100,7 @@ restorecon -rv %{buildroot}/%{_localstatedir}/www
 %files striker
 %attr(0775, apache, root) %{_localstatedir}/www/*/*
 %{_sysconfdir}/anvil/snmp-models.json
-
+%ghost %{_sysconfdir}/anvil/snmp-vendors.txt
 
 #%files node
 #<placeholder for node specific files>
