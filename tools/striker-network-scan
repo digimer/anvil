@@ -44,10 +44,14 @@ sub network_scan {
 $anvil->Get->switches();
 my $subnet = defined $anvil->data->{switches}{subnet} ? $anvil->data->{switches}{subnet} : "";
 
-if ($subnet) {
-  network_scan({subnet => $subnet});
+if ($> != 0) {
+  print("Command must be run as root\n");
 } else {
-  print("Usage: ./network-scan --subnet 10.20");
+  if ($subnet) {
+    network_scan({subnet => $subnet});
+  } else {
+    print("Usage: ./network-scan --subnet 10.20");
+  }
 }
 
 exit(0);
