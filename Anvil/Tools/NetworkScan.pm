@@ -246,7 +246,18 @@ sub _scan_nmap_with_forks
 	# children are spawned, and things are OK.
 	my $parent_pid = $$;
 	my %pids;
-	foreach my $i (0..255)
+	my ($ipaddr, $cidr) = split(/\/(\d+$)/, $anvil->data->{scan}{sys}{network}, 2);
+        my $netmask = (2**32)-1 & ~(2**(32-$cidr)-1);
+        my ($octetA, $octetB, $octetC, $octetD) = split(/\./, $ipaddr);
+        $octetA = $octetA * (2**24);
+        $octetB = $octetB * (2**16);
+        $octetC = $octetC * (2**8);
+        my $numericIP = $octetA + $octetB + $octetC + $octetD;
+
+	if ($cidr < 12) {
+        	print "Scan is too large! Please scan no larger than a /12\n";
+	} else {
+  		for (my $i = $numericIP & $netmask; $i <= (($numericIP & $netmask) | (~$netmask & ~255)); $i += 256)
 	{
 		defined(my $pid = fork) or die "Can't fork(), error was: $!\n";
 		if ($pid)
@@ -257,12 +268,17 @@ sub _scan_nmap_with_forks
 		}
 		else
 		{
+			my $octet0 = "0/24";
+      			my $octet1 = ($i >> 8) & 255;
+      			my $octet2 = ($i >> 16) & 255;
+      			my $octet3 = ($i >> 24) & 255;
+			my $sleep_segment = 0;
 			# This is the child thread, so do the call.
 			# Note that, without the 'die', we could end
 			# up here if the fork() failed.
-			sleep(($i * $anvil->data->{scan}{sys}{time_per_nmap_fork}) / 1000);
+			sleep(($sleep_segment * $anvil->data->{scan}{sys}{time_per_nmap_fork}) / 1000);
 			my $output_file = $anvil->data->{scan}{path}{child_output} . "/segment.$i.out";
-			my $scan_range  = $anvil->data->{scan}{sys}{network} . ".$i.0/24";
+			my $scan_range  = "$octet3".".$octet2".".$octet1".".$octet0";
 			my $shell_call  = $anvil->data->{scan}{path}{nmap} . " " . $anvil->data->{scan}{sys}{nmap_switches} . " $scan_range > $output_file";
 			print "Child process with PID: [$$] scanning segment: [$scan_range] now...\n" if not $anvil->data->{scan}{sys}{quiet};
 			#print "Calling: [$shell_call]\n";
@@ -274,6 +290,8 @@ sub _scan_nmap_with_forks
 				print "PID: [$$], line: [$line]\n" if not $anvil->data->{scan}{sys}{quiet};
 			}
 			close $file_handle;
+
+			$sleep_segment++;
 
 			# Kill the child process.
 			exit;
