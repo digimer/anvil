@@ -101,7 +101,7 @@ sub scan
 	$anvil->data->{scan} = {
 		ip		=>	{},
 		path		=>	{
-			child_output	=>	"/tmp/anvil-scan-network",
+			child_output	=>	"/tmp/anvil-scan-network" . ".$$",
 			nmap		=>	"/usr/bin/nmap",
 			rm		=>	"/bin/rm",
 		},
@@ -257,8 +257,10 @@ sub _scan_nmap_with_forks
 	if ($cidr < 12) {
         	print "Scan is too large! Please scan no larger than a /12\n";
 	} else {
-  		for (my $i = $numericIP & $netmask; $i <= (($numericIP & $netmask) | (~$netmask & ~255)); $i += 256)
+		my $sleep_segment = 0;
+  		for (my $i = $numericIP & $netmask; $i <= ((($numericIP & $netmask) | (~$netmask & ~255)) & 2**32-1); $i += 256)
 	{
+		$sleep_segment++;
 		defined(my $pid = fork) or die "Can't fork(), error was: $!\n";
 		if ($pid)
 		{
@@ -272,12 +274,11 @@ sub _scan_nmap_with_forks
       			my $octet1 = ($i >> 8) & 255;
       			my $octet2 = ($i >> 16) & 255;
       			my $octet3 = ($i >> 24) & 255;
-			my $sleep_segment = 0;
 			# This is the child thread, so do the call.
 			# Note that, without the 'die', we could end
 			# up here if the fork() failed.
 			sleep(($sleep_segment * $anvil->data->{scan}{sys}{time_per_nmap_fork}) / 1000);
-			my $output_file = $anvil->data->{scan}{path}{child_output} . "/segment.$i.out";
+			my $output_file = $anvil->data->{scan}{path}{child_output} . "/segment.$sleep_segment.out";
 			my $scan_range  = "$octet3".".$octet2".".$octet1".".$octet0";
 			my $shell_call  = $anvil->data->{scan}{path}{nmap} . " " . $anvil->data->{scan}{sys}{nmap_switches} . " $scan_range > $output_file";
 			print "Child process with PID: [$$] scanning segment: [$scan_range] now...\n" if not $anvil->data->{scan}{sys}{quiet};
@@ -291,11 +292,11 @@ sub _scan_nmap_with_forks
 			}
 			close $file_handle;
 
-			$sleep_segment++;
 
 			# Kill the child process.
 			exit;
 		}
+}
 	}
 	# Now loop until both child processes are dead.
 	# This helps to catch hung children.
@@ -412,16 +413,7 @@ sub _cleanup_temp
 	my $anvil     = $self->parent;
 
 	print "- Purging old scan files.\n" if not $anvil->data->{scan}{sys}{quiet};
-	my $shell_call = $anvil->data->{scan}{path}{rm} . " -f " . $anvil->data->{scan}{path}{child_output} . "/segment.*";
-	print "- Calling: [$shell_call]\n" if not $anvil->data->{scan}{sys}{quiet};
-	open (my $file_handle, "$shell_call 2>&1 |") or die "Failed to call: [$shell_call], error was: $!\n";
-	while(<$file_handle>)
-	{
-		chomp;
-		my $line = $_;
-		print "- Output: [$line]\n" if not $anvil->data->{scan}{sys}{quiet};
-	}
-	close $file_handle;
+	system($anvil->data->{scan}{path}{rm}, "-rf", $anvil->data->{scan}{path}{child_output});
 }
 
 =head2 _get_date
