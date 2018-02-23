@@ -47,10 +47,11 @@ my $subnet = defined $anvil->data->{switches}{subnet} ? $anvil->data->{switches}
 if ($> != 0) {
   print("Command must be run as root\n");
 } else {
-  if ($subnet) {
+  if ($subnet && $subnet =~ /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(?:1[2-9]|2[0-9]|30)$/) {
     network_scan({subnet => $subnet});
   } else {
-    print("Usage: ./network-scan --subnet 10.20");
+    print("Invalid IP or CIDR value\n");
+    print("Usage: sudo /usr/sbin/striker-network-scan --subnet=10.20.0.0/16\n");
   }
 }
 

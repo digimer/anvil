@@ -253,12 +253,8 @@ sub _scan_nmap_with_forks
         $octetB = $octetB * (2**16);
         $octetC = $octetC * (2**8);
         my $numericIP = $octetA + $octetB + $octetC + $octetD;
-
-	if ($cidr < 12) {
-        	print "Scan is too large! Please scan no larger than a /12\n";
-	} else {
-		my $sleep_segment = 0;
-  		for (my $i = $numericIP & $netmask; $i <= ((($numericIP & $netmask) | (~$netmask & ~255)) & 2**32-1); $i += 256)
+	my $sleep_segment = 0;
+  	for (my $i = $numericIP & $netmask; $i <= ((($numericIP & $netmask) | (~$netmask & ~255)) & 2**32-1); $i += 256)
 	{
 		$sleep_segment++;
 		defined(my $pid = fork) or die "Can't fork(), error was: $!\n";
@@ -296,7 +292,6 @@ sub _scan_nmap_with_forks
 			# Kill the child process.
 			exit;
 		}
-}
 	}
 	# Now loop until both child processes are dead.
 	# This helps to catch hung children.
