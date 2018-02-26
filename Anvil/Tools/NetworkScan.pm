@@ -78,7 +78,8 @@ sub parent
 
 =head2 scan
 
-Scans a subnet using nmap. Uses all octets of an IP plus CIDR, and then does a scan. The amount of forks made depends on the CIDR value, and then a /24 nmap scan is done on each.
+Scans a subnet using nmap. Uses all octets of an IP plus CIDR, and then does a scan. 
+The amount of forks made depends on the CIDR value, then a /24 nmap scan is performed on each fork.
 
 =head2 Parameters;
 
@@ -212,7 +213,7 @@ WHERE
 =head2 _scan_nmap_with_forks
 
 Splits an IP using the CIDR value to determine the amount of forks. Each fork process
-does a /24 nmap scan for speed. Stores each result into separate files to
+performs a /24 nmap scan for speed. Stores each result into separate files to
 be compiled after everything is done.
 
 =cut
