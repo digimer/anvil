@@ -7,7 +7,7 @@ Summary:        Alteeve Anvil! complete package
 
 License:        GPLv2+
 URL:            https://github.com/Seneca-CDOT/anvil
-Source0:        https://github.com/Seneca-CDOT/anvil/archive/combined-branches.tar.gz
+Source0:        https://github.com/Seneca-CDOT/anvil/archive/master.tar.gz
 BuildArch:      noarch
 
 
@@ -55,7 +55,7 @@ Web interface of the Striker dashboard for Alteeve Anvil! systems
 
 
 %prep
-%autosetup -n anvil-combined-branches
+%autosetup -n anvil-master
 
 
 %build
