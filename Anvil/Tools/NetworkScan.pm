@@ -212,9 +212,8 @@ WHERE
 
 =head2 _scan_nmap_with_forks
 
-Splits an IP using the CIDR value to determine the amount of forks. Each fork process
-performs a /24 nmap scan for speed. Stores each result into separate files to
-be compiled after everything is done.
+Splits an IP using the CIDR value to determine the amount of forks. Each fork process performs a /24 nmap 
+scan for speed. Stores each result into separate files to be compiled after everything is done.
 
 =cut
 sub _scan_nmap_with_forks
