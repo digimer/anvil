@@ -14,9 +14,9 @@ Scans a subnet using nmap and prints the results to stdout in CSV format.
 
 =head3 subnet
 
-The first two octets of an IP address.
+An IP address with CIDR.
 
-Example: "10.20"
+Example: "10.20.0.0/16"
 
 =cut
 sub network_scan {

@@ -78,16 +78,15 @@ sub parent
 
 =head2 scan
 
-Scans a subnet using nmap. Uses the first two octets of an IP, and then does a
-/16 scan. 256 forks are made, and a /24 nmap scan is done on each.
+Scans a subnet using nmap. Uses all octets of an IP plus CIDR, and then does a scan. The amount of forks made depends on the CIDR value, and then a /24 nmap scan is done on each.
 
 =head2 Parameters;
 
 =head3 subnet
 
-The first two octets of an IP address.
+An IP address with CIDR.
 
-Example: "10.20"
+Example: "10.20.0.0/16"
 
 =cut
 sub scan
@@ -212,8 +211,8 @@ WHERE
 
 =head2 _scan_nmap_with_forks
 
-Splits a /16 IP using the first two octets of an IP address into 256 processes
-doing /24 nmap scans for speed. Stores each result into separate files to
+Splits an IP using the CIDR value to determine the amount of forks. Each fork process
+does a /24 nmap scan for speed. Stores each result into separate files to
 be compiled after everything is done.
 
 =cut
@@ -223,7 +222,7 @@ sub _scan_nmap_with_forks
 	my $anvil     = $self->parent;
 
 	# Create the directory where the child processes will write their output to.
-	print "Scanning for devices on " . $anvil->data->{scan}{sys}{network} . ".0.0/16 now:\n" if not $anvil->data->{scan}{sys}{quiet};
+	print "Scanning for devices on " . $anvil->data->{scan}{sys}{network} . " now:\n" if not $anvil->data->{scan}{sys}{quiet};
 	print "# Network scan started at: [".$anvil->NetworkScan->_get_date({use_time => time})."], expected finish: [".$anvil->NetworkScan->_get_date({use_time => time + 300})."]\n" if not $anvil->data->{scan}{sys}{quiet};
 	if (not -d $anvil->data->{scan}{path}{child_output})
 	{
