@@ -6,8 +6,8 @@ Summary:        Alteeve Anvil! complete package
 
 
 License:        GPLv2+
-URL:            https://github.com/Seneca-CDOT/anvil
-Source0:        https://github.com/Seneca-CDOT/anvil/archive/master.tar.gz
+URL:            https://github.com/digimer/anvil
+Source0:        https://github.com/digimer/anvil/archive/master.tar.gz
 BuildArch:      noarch
 
 
