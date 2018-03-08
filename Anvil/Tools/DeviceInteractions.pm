@@ -162,20 +162,24 @@ A device action that factory resets a brocade switch.
 =cut
 sub factory_reset_brocade_switch
 {
-  print "This action will require a reset. This will take at least 3 minutes.\n";
-  my $parameter = shift;
-  $parameter->{to_check} = [
-    { input => "n\rexit\rexit\rexit\r", output => "", message => "$beginning_message" },
-    { input => "\r\r", output => "(Router|Switch)>" },
-    { input => "enable\r", output => "(Router|Switch)\#" },
-    { input => "erase startup-config\r", output => "Erase startup-config Done.|config empty." },
-    { input => "reload\r", output => "Are you sure?" },
-    { input => "y\r", output => "Do you want to continue the reload anyway?" },
-    { input => "y\r", output => "Rebooting|Reload request sent" },
-    { input => "\r\r", output => "(Router|Switch)>", timeout => 300, wait_for_output => 1, bytes_to_read => 16384 },
-    { input => "\r\r", output => "", wait_time => 30 }
-  ];
-  $parameter->{device_interaction}($parameter);
+  my $proceed = confirm();
+  unless($proceed == 0)
+  {
+    print "This action will require a reset. This will take at least 3 minutes.\n";
+    my $parameter = shift;
+    $parameter->{to_check} = [
+      { input => "n\rexit\rexit\rexit\r", output => "", message => "$beginning_message" },
+      { input => "\r\r", output => "(Router|Switch)>" },
+      { input => "enable\r", output => "(Router|Switch)\#" },
+      { input => "erase startup-config\r", output => "Erase startup-config Done.|config empty." },
+      { input => "reload\r", output => "Are you sure?" },
+      { input => "y\r", output => "Do you want to continue the reload anyway?" },
+      { input => "y\r", output => "Rebooting|Reload request sent" },
+      { input => "\r\r", output => "(Router|Switch)>", timeout => 300, wait_for_output => 1, bytes_to_read => 16384 },
+      { input => "\r\r", output => "", wait_time => 30 }
+    ];
+    $parameter->{device_interaction}($parameter);
+  }
 }
 
 =head2 setup_vlan_brocade_switch
@@ -607,24 +611,28 @@ A device action that resets an APC UPS to factory defaults.
 =cut
 sub factory_reset_apc_ups
 {
-  my $parameter = shift;
-  $parameter->{to_check} = [
-    { input => "\e", output => "", message => "$beginning_message" },
-    { input => "\e", output => "" },
-    { input => "\equit\r", output => "" },
-    { input => "\r\r\r\r", output => "User Name :", timeout => 4 },
-    { input => "apc\r", output => "Password  :", timeout => 4},
-    { input => "apc\r", output => "apc>" },
-    { input => "resetToDef -p all\r", output => "Enter 'YES' to continue or <ENTER> to cancel : "},
-    { input => "YES\r", output => "Please wait..." },
-    { input => "reboot\r", output => "Enter 'YES' to continue or <ENTER> to cancel : " },
-    { input => "YES\r", output => "Rebooting...", reconnect => 1, reconnect_timeout => 120 },
-    { input => "\r\r\r\r", output => "User Name :", timeout => 4 },
-    { input => "apc\r", output => "Password  :", timeout => 4 },
-    { input => "apc\r", output => "apc>" },
-    { input => "quit\r", output => "Logging out|Bye" },
-  ];
-  $parameter->{device_interaction}($parameter);
+  my $proceed = confirm();
+  unless($proceed == 0)
+  {
+    my $parameter = shift;
+    $parameter->{to_check} = [
+      { input => "\e", output => "", message => "$beginning_message" },
+      { input => "\e", output => "" },
+      { input => "\equit\r", output => "" },
+      { input => "\r\r\r\r", output => "User Name :", timeout => 4 },
+      { input => "apc\r", output => "Password  :", timeout => 4},
+      { input => "apc\r", output => "apc>" },
+      { input => "resetToDef -p all\r", output => "Enter 'YES' to continue or <ENTER> to cancel : "},
+      { input => "YES\r", output => "Please wait..." },
+      { input => "reboot\r", output => "Enter 'YES' to continue or <ENTER> to cancel : " },
+      { input => "YES\r", output => "Rebooting...", reconnect => 1, reconnect_timeout => 120 },
+      { input => "\r\r\r\r", output => "User Name :", timeout => 4 },
+      { input => "apc\r", output => "Password  :", timeout => 4 },
+      { input => "apc\r", output => "apc>" },
+      { input => "quit\r", output => "Logging out|Bye" },
+    ];
+    $parameter->{device_interaction}($parameter);
+  }
 }
 
 =head2 check_ip_apc_ups
@@ -688,6 +696,30 @@ sub trim
   my $str = $_[0];
   $str =~ s/^\s+|\s+$//g;
   return $str;
+}
+
+sub confirm
+{
+  my $input;
+  until ($input =~ /^(y|yes|n|no)$/i)
+  {
+    print "Are you sure you would like to proceed? (y/n):\n";
+    $input = <STDIN>;
+    chomp $input;
+    trim($input);
+    if ($input =~ /^(y|yes)$/i)
+    {
+      return 1;
+    }
+    elsif ($input =~ /^(n|no)$/i)
+    {
+      return 0;
+    }
+    else
+    {
+      print "Invalid input (Acceptable values: y|yes|n|no)\n";
+    }
+  }
 }
 
 1;
