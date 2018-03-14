@@ -505,8 +505,8 @@ my @devices;
 my $options = {};
 my @opt_define = (
   'serial_device=s',
+  'test_serial_devices',
   'list_serial_devices',
-  'show_serial_devices',
   'verbose',
   'action=s',
   'profile=s',
@@ -528,7 +528,12 @@ if ($options->{serial_device})
     perform_device_action($options);
   }
 }
-elsif ($options->{list_serial_devices} || $options->{show_serial_devices})
+elsif ($options->{test_serial_devices})
+{
+  $options->{connection_type} = "serial";
+  test_serial_devices({devices => $options->{test_serial_devices}});
+}
+elsif ($options->{list_serial_devices})
 {
   $options->{connection_type} = "serial";
   find_serial_devices({list_devices => $options->{list_serial_devices}});

@@ -13,7 +13,7 @@ sub device_actions
 {
   my $actions = {
     brocadeSwitch => [
-      { action => "factoryReset", sub => \&factory_reset_brocade_switch, required_params => [] },
+      { action => "factoryReset", sub => \&factory_reset_brocade_switch, required_params => ["force"] },
       { action => "setupVLAN", sub => \&setup_vlan_brocade_switch, required_params => [] },
       { action => "setupStack", sub => \&setup_stack_brocade_switch, required_params => [] },
       { action => "setPassword", sub => \&set_password_brocade_switch, required_params => ["root_password", "alteeve_password"] },
@@ -38,7 +38,7 @@ sub device_actions
 
     apcUPS => [
       { action => "setIP", sub => \&set_ip_apc_ups, required_params => ["ip", "subnet", "gateway", "striker_dash1_ip"] },
-      { action => "factoryReset", sub => \&factory_reset_apc_ups, required_params => [] },
+      { action => "factoryReset", sub => \&factory_reset_apc_ups, required_params => ["force"] },
       { action => "enableSNMP", sub => \&enable_snmp_apc_ups, required_params => [] },
       { action => "checkIP", sub => \&check_ip_apc_ups, required_params => ["ip", "subnet"] },
       { action => "checkSNMP", sub => \&check_snmp_apc_ups, required_params => [] }
@@ -61,7 +61,8 @@ sub command_line_switches
     'root_password=s',
     'alteeve_password=s',
     'member_id=s',
-    'striker_dash1_ip=s'
+    'striker_dash1_ip=s',
+    'force'
   ];
   return $switches;
 }
@@ -162,11 +163,19 @@ A device action that factory resets a brocade switch.
 =cut
 sub factory_reset_brocade_switch
 {
-  my $proceed = confirm();
+  my $parameter = shift;
+  my $force_flag = defined $parameter->{force} ? $parameter->{force} : "";
+  if ($force_flag)
+  {
+    my $proceed = 1;
+  }
+  else
+  {
+    my $proceed = confirm();
+  }
   unless($proceed == 0)
   {
     print "This action will require a reset. This will take at least 3 minutes.\n";
-    my $parameter = shift;
     $parameter->{to_check} = [
       { input => "n\rexit\rexit\rexit\r", output => "", message => "$beginning_message" },
       { input => "\r\r", output => "(Router|Switch)>" },
@@ -611,10 +620,18 @@ A device action that resets an APC UPS to factory defaults.
 =cut
 sub factory_reset_apc_ups
 {
-  my $proceed = confirm();
+  my $parameter = shift;
+  my $force_flag = defined $parameter->{force} ? $parameter->{force} : "";
+  if ($force_flag)
+  {
+    my $proceed = 1;
+  }
+  else
+  {
+    my $proceed = confirm();
+  }
   unless($proceed == 0)
   {
-    my $parameter = shift;
     $parameter->{to_check} = [
       { input => "\e", output => "", message => "$beginning_message" },
       { input => "\e", output => "" },
