@@ -531,7 +531,7 @@ if ($options->{serial_device})
 elsif ($options->{test_serial_devices})
 {
   $options->{connection_type} = "serial";
-  test_serial_devices({devices => $options->{test_serial_devices}});
+  find_serial_devices();
 }
 elsif ($options->{list_serial_devices})
 {
