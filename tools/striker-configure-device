@@ -148,7 +148,7 @@ sub get_serial_output
   my $device = defined $parameter->{device} ? $parameter->{device} : "";
   my $baud_rate = defined $parameter->{baud_rate} ? $parameter->{baud_rate} : "";
   my $port = defined $parameter->{port} ? $parameter->{port} : "";
-  my $str_to_write = defined $parameter->{str_to_write} ? $parameter->{str_to_write} : "\r\r";
+  my $str_to_write = defined $parameter->{str_to_write} ? $parameter->{str_to_write} : "\r\n";
   my $bytes_to_read = defined $parameter->{bytes_to_read} ? $parameter->{bytes_to_read} : 256;
   my $wait_time = defined $parameter->{wait_time} ? $parameter->{wait_time} : 1;
   my $timeout = defined $parameter->{timeout} ? $parameter->{timeout} : 0;
@@ -167,8 +167,8 @@ sub get_serial_output
     $should_close = 1;
   }
 
-  $port->write($str_to_write);
   $port->lookclear();
+  $port->write($str_to_write);
 
   print "Please wait for a maximum of " . $timeout . " seconds." if ($show_timeout_output);
   $| = 1 if ($show_timeout_output);
