@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # Root package.json
+  - package-ecosystem: 'npm'
+    target-branch: "striker-ui"
+    directory: '/striker-ui'
+    schedule:
+      interval: 'daily'
+      # Use Eastern Standard Time (UTC -05:00)
+      timezone: 'America/Toronto'
+    commit-message:
+      prefix: 'chore: '
+    labels:
+      - 'dependencies'
+    # Disable automatic rebasing
+    rebase-strategy: 'disabled'
