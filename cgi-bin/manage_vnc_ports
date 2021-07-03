@@ -1,0 +1,148 @@
+#!/usr/bin/perl
+# 
+# Manages VNC ports for server VMs that have VNC enabled.
+# 
+
+use strict;
+use warnings;
+use Anvil::Tools;
+use Data::Dumper;
+use JSON;
+
+$| = 1;
+
+my $THIS_FILE           =  ($0 =~ /^.*\/(.*)$/)[0];
+my $running_directory   =  ($0 =~ /^(.*?)\/$THIS_FILE$/)[0];
+if (($running_directory =~ /^\./) && ($ENV{PWD}))
+{
+	$running_directory =~ s/^\./$ENV{PWD}/;
+}
+
+my $anvil = Anvil::Tools->new();
+
+$anvil->Log->level({ set => 2 });
+
+sub get_server_info
+{
+	my $parameters  = shift;
+	my $server_uuid = $parameters->{server_uuid};
+	my $info_hash   = {};
+
+	my $query = "
+SELECT
+	ser.server_name,
+	hos.host_name
+FROM
+    servers AS ser
+JOIN
+	hosts AS hos
+ON
+	ser.server_host_uuid = hos.host_uuid
+WHERE
+    server_uuid = ".$anvil->Database->quote($server_uuid)."
+;";
+	my $results = $anvil->Database->query({ query => $query, source => $THIS_FILE, line => __LINE__ });
+	my $count   = @{$results};
+
+	if ($count == 1)
+	{
+		my $row         = $results->[0];
+		my $server_name = $row->[0];
+		my $host_name   = $row->[1];
+
+		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+			server_name => $server_name,
+			host_name   => $host_name
+		} });
+
+		$info_hash->{server_name} = $server_name;
+		$info_hash->{host_name}   = $host_name;
+	}
+
+	return $info_hash;
+}
+
+sub get_vnc_info
+{
+	my $parameters  = shift;
+	my $host_name   = $parameters->{host_name};
+	my $server_name = $parameters->{server_name};
+	my $port_base   = 5900;
+	my $vnc_info    = { host_name => $host_name };
+	my $shell_call  = "ssh root@".$host_name." \"virsh vncdisplay ".$server_name."\"";
+
+	my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+	my ($port_offset)                      = $shell_output =~ /:(\d+)$/;
+	my $port_sum                           = $port_base + int($port_offset);
+	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+		shell_output      => $shell_output,
+		shell_return_code => $shell_return_code,
+		port_offset       => $port_offset,
+		port_sum          => $port_sum
+	} });
+
+	if ($shell_return_code == 0)
+	{
+		$vnc_info->{port} = $port_sum;
+	}
+
+	return $vnc_info;
+}
+
+$anvil->Get->switches;
+
+$anvil->Database->connect;
+$anvil->Log->entry({ source => $THIS_FILE, line => __LINE__, level => 2, secure => 0, key => "log_0132" });
+if (not $anvil->data->{sys}{database}{connections})
+{
+	# No databases, exit.
+	$anvil->Log->entry({ source => $THIS_FILE, line => __LINE__, level => 0, 'print' => 1, priority => "err", key => "error_0003" });
+	$anvil->nice_exit({ exit_code => 1 });
+}
+
+# Read in any CGI variables, if needed.
+$anvil->Get->cgi();
+
+$anvil->Database->get_hosts();
+$anvil->Database->get_anvils();
+
+print $anvil->Template->get({ file => "shared.html", name => "json_headers", show_name => 0 })."\n";
+
+my $response_body = {};
+my $request_body;
+
+if (defined $anvil->data->{cgi}{PUTDATA}{value})
+{
+	my $is_decode_json_success = eval {
+		$request_body = decode_json($anvil->data->{cgi}{PUTDATA}{value});
+	};
+
+	if (not $is_decode_json_success)
+	{
+		$anvil->Log->entry({
+			source    => $THIS_FILE,
+			line      => __LINE__,
+			level     => 0,
+			'print'   => 1,
+			priority  => "err",
+			key       => "error_0304",
+			variables => { request_body_string => $anvil->data->{cgi}{PUTDATA}{value}, json_decode_error => $@ }
+		});
+	}
+}
+
+my $server_uuid = exists $request_body->{server_uuid} ? $request_body->{server_uuid} : $anvil->data->{switches}{'server-uuid'};
+my $is_open     = exists $request_body->{is_open}     ? $request_body->{is_open}     : $anvil->data->{switches}{'is-open'};
+
+$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+	server_uuid => $server_uuid,
+	is_open     => $is_open
+} });
+
+if ($server_uuid)
+{
+	my $server_info = get_server_info({ server_uuid => $server_uuid });
+	my $vnc_port    = get_vnc_info($server_info);
+}
+
+print JSON->new->utf8->encode($response_body)."\n";
