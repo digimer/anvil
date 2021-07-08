@@ -92,6 +92,27 @@ sub get_vnc_info
 	return $vnc_info;
 }
 
+sub create_vnc_pipes_table
+{
+	my $query = "
+CREATE TABLE IF NOT EXISTS public.vnc_pipes (
+	uuid			uuid				not null	primary key,
+	server_uuid		uuid				not null,
+	ws_host_uuid		uuid				not null,
+	ws_pid			uuid				not null,
+	ssh_tunnel_host_uuid	uuid				not null,
+	ssh_tunnel_pid		uuid				not null,
+	modified_date		timestamp with time zone	not null
+);";
+	my $results = $anvil->Database->write({ query => $query, source => $THIS_FILE, line => __LINE__ });
+}
+
+sub drop_vnc_pipes_table
+{
+	my $query   = "DROP TABLE IF EXISTS public.vnc_pipes;";
+	my $results = $anvil->Database->write({ query => $query, source => $THIS_FILE, line => __LINE__ });
+}
+
 $anvil->Get->switches;
 
 $anvil->Database->connect;
@@ -146,6 +167,12 @@ if ($server_uuid)
 {
 	my $server_info = get_server_info({ server_uuid => $server_uuid });
 	my $vnc_port    = get_vnc_info($server_info);
+
+	create_vnc_pipes_table();
+}
+elsif ($anvil->data->{switches}{'drop-table'})
+{
+	drop_vnc_pipes_table();
 }
 
 print JSON->new->utf8->encode($response_body)."\n";
