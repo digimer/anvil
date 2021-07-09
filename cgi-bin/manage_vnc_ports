@@ -92,6 +92,18 @@ sub get_vnc_info
 	return $vnc_info;
 }
 
+sub start_websockify
+{
+	my $parameters         = shift;
+	my $host_name          = $parameters->{host_name};
+	my $target_port        = $parameters->{target_port};
+	my $source_port_base   = 10000;
+	my $source_port        = $source_port_base + $target_port;
+	my $shell_call         = "ssh root@".$host_name." \"websockify ".$source_port." :".$target_port." & echo \$!\"";
+
+	my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+}
+
 sub create_vnc_pipes_table
 {
 	my $query = "
