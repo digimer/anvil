@@ -31,15 +31,16 @@ sub get_server_info
 	my $query = "
 SELECT
 	ser.server_name,
-	hos.host_name
+	hos.host_name,
+	hos.host_uuid
 FROM
-    servers AS ser
+	public.servers AS ser
 JOIN
-	hosts AS hos
+	public.hosts AS hos
 ON
 	ser.server_host_uuid = hos.host_uuid
 WHERE
-    server_uuid = ".$anvil->Database->quote($server_uuid)."
+	server_uuid = ".$anvil->Database->quote($server_uuid)."
 ;";
 	my $results = $anvil->Database->query({ query => $query, source => $THIS_FILE, line => __LINE__ });
 	my $count   = @{$results};
@@ -49,14 +50,17 @@ WHERE
 		my $row         = $results->[0];
 		my $server_name = $row->[0];
 		my $host_name   = $row->[1];
+		my $host_uuid   = $row->[2];
 
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 			server_name => $server_name,
-			host_name   => $host_name
+			host_name   => $host_name,
+			host_uuid   => $host_uuid
 		} });
 
 		$info_hash->{server_name} = $server_name;
 		$info_hash->{host_name}   = $host_name;
+		$info_hash->{host_uuid}   = $host_uuid;
 	}
 
 	return $info_hash;
@@ -69,10 +73,10 @@ sub get_vnc_info
 	my $server_name = $parameters->{server_name};
 	my $port_base   = 5900;
 	my $vnc_info    = { host_name => $host_name };
-	my $shell_call  = "ssh root@".$host_name." \"virsh vncdisplay ".$server_name."\"";
+	# Requires root to access VM information.
+	my $shell_call  = "ssh -n root@".$host_name." \"virsh vncdisplay ".$server_name."\"";
 
 	my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
-
 	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 		shell_output      => $shell_output,
 		shell_return_code => $shell_return_code
@@ -92,16 +96,126 @@ sub get_vnc_info
 	return $vnc_info;
 }
 
-sub start_websockify
+sub is_websockify_process
 {
-	my $parameters         = shift;
-	my $host_name          = $parameters->{host_name};
-	my $target_port        = $parameters->{target_port};
-	my $source_port_base   = 10000;
-	my $source_port        = $source_port_base + $target_port;
-	my $shell_call         = "ssh root@".$host_name." \"websockify ".$source_port." :".$target_port." & echo \$!\"";
+	my $parameters = shift;
+	my $host_name  = $parameters->{host_name};
+	my $ws_pid     = $parameters->{ws_pid};
+	my $shell_call = "ssh -n ".$host_name." \"ps -o comm -h -p ".$ws_pid."\"";
 
 	my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+		shell_output      => $shell_output,
+		shell_return_code => $shell_return_code
+	} });
+
+	return $shell_output eq "websockify" ? 1 : 0;
+}
+
+sub is_websockify_exists
+{
+	my $parameters      = shift;
+	my $server_uuid     = $parameters->{server_uuid};
+	my $server_vnc_port = $parameters->{server_vnc_port};
+
+	my $query = "
+SELECT
+	vnc.server_vnc_port, hos.host_name, vnc.ws_pid
+FROM
+	public.vnc_pipes AS vnc
+JOIN
+	public.hosts AS hos
+ON
+	vnc.ws_host_uuid = hos.host_uuid
+WHERE
+	server_uuid = ".$anvil->Database->quote($server_uuid)."
+;";
+
+	my $results   = $anvil->Database->query({ query => $query, source => $THIS_FILE, line => __LINE__ });
+	my $count     = @{$results};
+	my $is_exists = 0;
+
+	if ($count > 1)
+	{
+		my $row                       = $results->[0];
+		my $server_vnc_port_in_record = $row->[0];
+		my $host_name                 = $row->[1];
+		my $ws_pid                    = $row->[2];
+		my $clean_up_parameters       = { host_name => $host_name, ws_pid => $ws_pid };
+
+		if ($server_vnc_port != $server_vnc_port_in_record)
+		{
+			# VNC server port mismatch/oudated; require clean up.
+
+			stop_websockify($clean_up_parameters);
+
+			return $is_exists;
+		}
+
+		if (not is_websockify_process($clean_up_parameters))
+		{
+			# Process died; require clean up.
+			return $is_exists;
+		}
+
+		# Passed all tests; process considered exists.
+		$is_exists = 1;
+	}
+
+	return $is_exists;
+}
+
+sub start_websockify
+{
+	my $parameters       = shift;
+	my $server_uuid      = $parameters->{server_uuid};
+	my $host_name        = $parameters->{host_name};
+	my $target_port      = $parameters->{target_port};
+	my $ws_info;
+
+	if (not is_websockify_exists({ server_uuid => $server_uuid, server_vnc_port => $target_port }))
+	{
+		my $source_port_base = 10000;
+		my $source_port      = $source_port_base + $target_port;
+		my $shell_call       = "ssh -n ".$host_name." 'websockify ".$source_port." :".$target_port." & echo pid:\$!'";
+
+		my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+			shell_output      => $shell_output,
+			shell_return_code => $shell_return_code
+		} });
+
+		if ($shell_return_code == 0)
+		{
+			my ($ws_pid) = $shell_output =~ /^pid:(\d+)$/;
+
+			$ws_info                = {};
+			$ws_info->{pid}         = $ws_pid;
+			$ws_info->{source_port} = $source_port;
+
+			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => { ws_pid => $ws_pid } });
+		}
+	}
+
+	return $ws_info;
+}
+
+sub stop_websockify
+{
+	my $parameters = shift;
+	my $host_name  = $parameters->{host_name};
+	my $ws_pid     = $parameters->{ws_pid};
+
+	if (is_websockify_process($parameters))
+	{
+		my $shell_call = "ssh -n ".$host_name." \"kill -9 ".$ws_pid."\"";
+
+		my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+			shell_output      => $shell_output,
+			shell_return_code => $shell_return_code
+		} });
+	}
 }
 
 sub create_vnc_pipes_table
@@ -110,10 +224,11 @@ sub create_vnc_pipes_table
 CREATE TABLE IF NOT EXISTS public.vnc_pipes (
 	uuid			uuid				not null	primary key,
 	server_uuid		uuid				not null,
+	server_vnc_port		numeric				not null,
 	ws_host_uuid		uuid				not null,
-	ws_pid			uuid				not null,
+	ws_pid			numeric				not null,
 	ssh_tunnel_host_uuid	uuid				not null,
-	ssh_tunnel_pid		uuid				not null,
+	ssh_tunnel_pid		numeric				not null,
 	modified_date		timestamp with time zone	not null
 );";
 
@@ -131,6 +246,7 @@ sub insert_vnc_pipe
 {
 	my $parameters           = shift;
 	my $server_uuid          = $parameters->{server_uuid};
+	my $server_vnc_port      = $parameters->{server_vnc_port};
 	my $ws_host_uuid         = $parameters->{ws_host_uuid};
 	my $ws_pid               = $parameters->{ws_pid};
 	my $ssh_tunnel_host_uuid = $parameters->{ssh_tunnel_host_uuid};
@@ -138,7 +254,7 @@ sub insert_vnc_pipe
 
 	my $query = "
 INSERT INTO public.vnc_pipes (
-	server_uuid, ws_host_uuid, ws_pid, ssh_tunnel_host_uuid, ssh_tunnel_pid
+	server_uuid, server_vnc_port, ws_host_uuid, ws_pid, ssh_tunnel_host_uuid, ssh_tunnel_pid
 ) VALUES (
 	".$anvil->Database->quote($server_uuid).",
 	".$anvil->Database->quote($ws_host_uuid).",
@@ -148,6 +264,24 @@ INSERT INTO public.vnc_pipes (
 );";
 
 	$anvil->Database->write({ query => $query, source => $THIS_FILE, line => __LINE__ });
+}
+
+sub get_vnc_pipe
+{
+	my $parameters           = shift;
+	my $server_uuid          = $parameters->{server_uuid};
+	my $ssh_tunnel_host_uuid = $parameters->{ssh_tunnel_host_uuid};
+
+	my $query = "
+SELECT
+	ws_host_uuid, ws_pid, ssh_tunnel_pid
+FROM
+	public.vnc_pipes
+WHERE
+	server_uuid = ".$anvil->Database->quote($server_uuid)."
+AND
+	ssh_tunnel_host_uuid = ".$anvil->Database->quote($ssh_tunnel_host_uuid)."
+;";
 }
 
 sub delete_vnc_pipe
@@ -219,10 +353,19 @@ $anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, lis
 
 if ($server_uuid)
 {
-	my $server_info = get_server_info({ server_uuid => $server_uuid });
-	my $vnc_port    = get_vnc_info($server_info);
+	if ($is_open)
+	{
+		my $server_info = get_server_info({ server_uuid => $server_uuid });
+		my $vnc_info    = get_vnc_info($server_info);
 
-	create_vnc_pipes_table();
+		create_vnc_pipes_table();
+
+		my $ws_info = start_websockify({ server_uuid => $server_uuid, host_name => $server_info->{host_name}, target_port => $vnc_info->{port} });
+	}
+	else
+	{
+		# TODO: fill-in clean up section.
+	}
 }
 elsif ($anvil->data->{switches}{'drop-table'})
 {
