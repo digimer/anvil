@@ -26,13 +26,11 @@ sub get_server_info
 {
 	my $parameters  = shift;
 	my $server_uuid = $parameters->{server_uuid};
-	my $info_hash   = {};
+	my $server_info;
 
 	my $query = "
 SELECT
-	ser.server_name,
-	hos.host_name,
-	hos.host_uuid
+	ser.server_name, hos.host_name, hos.host_uuid
 FROM
 	public.servers AS ser
 JOIN
@@ -47,23 +45,21 @@ WHERE
 
 	if ($count == 1)
 	{
-		my $row         = $results->[0];
-		my $server_name = $row->[0];
-		my $host_name   = $row->[1];
-		my $host_uuid   = $row->[2];
+		my $row = $results->[0];
+
+		$server_info = {};
+		$server_info->{server_name} = $row->[0];
+		$server_info->{host_name}   = $row->[1];
+		$server_info->{host_uuid}   = $row->[2];
 
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
-			server_name => $server_name,
-			host_name   => $host_name,
-			host_uuid   => $host_uuid
+			server_name => $server_info->{server_name},
+			host_name   => $server_info->{host_name},
+			host_uuid   => $server_info->{host_uuid}
 		} });
-
-		$info_hash->{server_name} = $server_name;
-		$info_hash->{host_name}   = $host_name;
-		$info_hash->{host_uuid}   = $host_uuid;
 	}
 
-	return $info_hash;
+	return $server_info;
 }
 
 sub get_vnc_info
@@ -72,9 +68,9 @@ sub get_vnc_info
 	my $host_name   = $parameters->{host_name};
 	my $server_name = $parameters->{server_name};
 	my $port_base   = 5900;
-	my $vnc_info    = { host_name => $host_name };
 	# Requires root to access VM information.
 	my $shell_call  = "ssh -n root@".$host_name." \"virsh vncdisplay ".$server_name."\"";
+	my $vnc_info;
 
 	my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
@@ -85,6 +81,8 @@ sub get_vnc_info
 	if ($shell_return_code == 0)
 	{
 		my ($port_offset) = $shell_output =~ /:(\d+)$/;
+
+		$vnc_info         = { host_name => $host_name };
 		$vnc_info->{port} = $port_base + int($port_offset);
 
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
