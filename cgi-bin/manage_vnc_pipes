@@ -166,7 +166,7 @@ WHERE
 		$ws_exists_info->{ws_source_port} = $ws_source_port;
 		$ws_exists_info->{exists_code}    = 1;
 
-		if ($host_uuid != $host_uuid_in_record)
+		if ($host_uuid ne $host_uuid_in_record)
 		{
 			# VNC server host mismatch; try to stop the recorded instance.
 			# Likely happens after a server migration.
@@ -237,7 +237,7 @@ AND
 		$ssh_tunnel_exists_info->{ssh_tunnel_forward_port} = $ssh_tunnel_forward_port;
 		$ssh_tunnel_exists_info->{exists_code}             = 1;
 
-		if ($ws_host_uuid != $ws_host_uuid_in_record)
+		if ($ws_host_uuid ne $ws_host_uuid_in_record)
 		{
 			# Websockify host mismatch; try to stop the recorded instance.
 			# Likely happens after a server migration.
