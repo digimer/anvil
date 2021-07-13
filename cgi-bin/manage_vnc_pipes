@@ -247,6 +247,7 @@ sub start_websockify
 		$ws_info                = {};
 		$ws_info->{pid}         = $existing_websockify->{ws_pid};
 		$ws_info->{source_port} = $existing_websockify->{ssh_tunnel_forward_port};
+		$ws_info->{is_existing} = 1;
 	}
 	else
 	{
@@ -327,8 +328,9 @@ sub start_ssh_tunnel
 
 	if (defined $existing_ssh_tunnel)
 	{
-		$ssh_tunnel_info        = {};
-		$ssh_tunnel_info->{pid} = $existing_ssh_tunnel->{ssh_tunnel_pid};
+		$ssh_tunnel_info                = {};
+		$ssh_tunnel_info->{pid}         = $existing_ssh_tunnel->{ssh_tunnel_pid};
+		$ssh_tunnel_info->{is_existing} = 1;
 	}
 	else
 	{
@@ -636,15 +638,18 @@ sub open_vnc_pipe
 		return;
 	}
 
-	insert_vnc_pipe({
-		server_uuid             => $server_uuid,
-		server_vnc_port         => $vnc_info->{port},
-		ws_host_uuid            => $server_info->{host_uuid},
-		ws_pid                  => $ws_info->{pid},
-		ssh_tunnel_host_uuid    => $host_uuid,
-		ssh_tunnel_pid          => $ssh_tunnel_info->{pid},
-		ssh_tunnel_forward_port => $ws_info->{source_port}
-	});
+	if (not $ws_info->{is_existing} or not $ssh_tunnel_info->{is_existing})
+	{
+		insert_vnc_pipe({
+			server_uuid             => $server_uuid,
+			server_vnc_port         => $vnc_info->{port},
+			ws_host_uuid            => $server_info->{host_uuid},
+			ws_pid                  => $ws_info->{pid},
+			ssh_tunnel_host_uuid    => $host_uuid,
+			ssh_tunnel_pid          => $ssh_tunnel_info->{pid},
+			ssh_tunnel_forward_port => $ws_info->{source_port}
+		});
+	}
 }
 
 sub close_vnc_pipe
