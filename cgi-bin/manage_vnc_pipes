@@ -248,7 +248,7 @@ sub start_websockify
 	{
 		my $source_port_base = 10000;
 		my $source_port      = $source_port_base + $target_port;
-		my $shell_call       = "ssh -n ".$host_name." 'websockify ".$source_port." :".$target_port." & echo pid:\$!'";
+		my $shell_call       = "ssh -n ".$host_name." 'websockify ".$source_port." :".$target_port." &>/dev/null & echo pid:\$!'";
 
 		my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
