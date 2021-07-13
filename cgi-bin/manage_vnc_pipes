@@ -235,12 +235,13 @@ sub start_websockify
 	my $server_uuid = $parameters->{server_uuid};
 	my $host_name   = $parameters->{host_name};
 	my $target_port = $parameters->{target_port};
-	my $ws_info     = {};
+	my $ws_info;
 
 	my $existing_websockify = is_websockify_exists({ server_uuid => $server_uuid, server_vnc_port => $target_port });
 
 	if (defined $existing_websockify)
 	{
+		$ws_info                = {};
 		$ws_info->{pid}         = $existing_websockify->{ws_pid};
 		$ws_info->{source_port} = $existing_websockify->{ssh_tunnel_forward_port};
 	}
@@ -260,6 +261,7 @@ sub start_websockify
 		{
 			my ($ws_pid) = $shell_output =~ /pid:(\d+)$/;
 
+			$ws_info                = {};
 			$ws_info->{pid}         = $ws_pid;
 			$ws_info->{source_port} = $source_port;
 
@@ -310,19 +312,21 @@ sub start_ssh_tunnel
 {
 	my $parameters      = shift;
 	my $server_uuid     = $parameters->{server_uuid};
-	my $host_name       = $parameters->{host_name};
+	my $host_uuid       = $parameters->{host_uuid};
+	my $ws_host_name    = $parameters->{ws_host_name};
 	my $ws_source_port  = $parameters->{ws_source_port};
-	my $ssh_tunnel_info = {};
+	my $ssh_tunnel_info;
 
-	my $existing_ssh_tunnel = is_ssh_tunnel_exists({ server_uuid => $server_uuid });
+	my $existing_ssh_tunnel = is_ssh_tunnel_exists({ server_uuid => $server_uuid, host_uuid => $host_uuid });
 
 	if (defined $existing_ssh_tunnel)
 	{
+		$ssh_tunnel_info        = {};
 		$ssh_tunnel_info->{pid} = $existing_ssh_tunnel->{ssh_tunnel_pid};
 	}
 	else
 	{
-		my $shell_call = "ssh -nN -L ".$ws_source_port.":localhost:".$ws_source_port." ".$host_name." & echo pid:\$!";
+		my $shell_call = "ssh -nN -L ".$ws_source_port.":localhost:".$ws_source_port." ".$ws_host_name." & echo pid:\$!";
 
 		my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
@@ -334,6 +338,7 @@ sub start_ssh_tunnel
 		{
 			my ($ssh_tunnel_pid) = $shell_output =~ /pid:(\d+)$/;
 
+			$ssh_tunnel_info        = {};
 			$ssh_tunnel_info->{pid} = $ssh_tunnel_pid;
 
 			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => { ssh_tunnel_pid => $ssh_tunnel_pid } });
@@ -564,6 +569,7 @@ sub open_vnc_pipe
 {
 	my $parameters  = shift;
 	my $server_uuid = $parameters->{server_uuid};
+	my $host_uuid   = $anvil->Get->host_uuid();
 
 	my $server_info = get_server_info({ server_uuid => $server_uuid });
 
@@ -598,7 +604,12 @@ sub open_vnc_pipe
 		return;
 	}
 
-	my $ssh_tunnel_info = start_ssh_tunnel({ server_uuid => $server_uuid, host_name => $server_info->{host_name}, ws_source_port => $ws_info->{source_port} });
+	my $ssh_tunnel_info = start_ssh_tunnel({
+		server_uuid    => $server_uuid,
+		host_uuid      => $host_uuid,
+		ws_host_name   => $server_info->{host_name},
+		ws_source_port => $ws_info->{source_port}
+	});
 
 	if (not defined $ssh_tunnel_info)
 	{
@@ -614,7 +625,7 @@ sub open_vnc_pipe
 		server_vnc_port         => $vnc_info->{port},
 		ws_host_uuid            => $server_info->{host_uuid},
 		ws_pid                  => $ws_info->{pid},
-		ssh_tunnel_host_uuid    => $anvil->Get->host_uuid(),
+		ssh_tunnel_host_uuid    => $host_uuid,
 		ssh_tunnel_pid          => $ssh_tunnel_info->{pid},
 		ssh_tunnel_forward_port => $ws_info->{source_port}
 	});
