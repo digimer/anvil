@@ -369,7 +369,7 @@ sub stop_ssh_tunnel
 		my $shell_output;
 		my $shell_return_code;
 
-		if (defined $host_name)
+		if ((defined $host_name) and ($host_name ne $anvil->Get->host_name()))
 		{
 			$shell_call = "ssh -n ".$host_name." \"".$shell_call."\"";
 		}
