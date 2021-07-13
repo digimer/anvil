@@ -205,7 +205,7 @@ sub is_ssh_tunnel_exists
 {
 	my $parameters           = shift;
 	my $server_uuid          = $parameters->{server_uuid};
-	my $ssh_tunnel_host_uuid = $parameters->{host_uuid};
+	my $ssh_tunnel_host_uuid = $parameters->{ssh_tunnel_host_uuid};
 	my $ws_host_uuid         = $parameters->{ws_host_uuid};
 	my $ws_source_port       = $parameters->{ws_source_port};
 
