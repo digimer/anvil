@@ -74,6 +74,7 @@ sub get_vnc_info
 
 	my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+		shell_call        => $shell_call,
 		shell_output      => $shell_output,
 		shell_return_code => $shell_return_code
 	} });
@@ -103,6 +104,7 @@ sub is_websockify_process
 
 	my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+		shell_call        => $shell_call,
 		shell_output      => $shell_output,
 		shell_return_code => $shell_return_code
 	} });
@@ -118,6 +120,7 @@ sub is_ssh_process
 
 	my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+		shell_call        => $shell_call,
 		shell_output      => $shell_output,
 		shell_return_code => $shell_return_code
 	} });
@@ -253,6 +256,7 @@ sub start_websockify
 
 		my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+			shell_call        => $shell_call,
 			shell_output      => $shell_output,
 			shell_return_code => $shell_return_code
 		} });
@@ -289,6 +293,7 @@ sub stop_websockify
 
 		($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+			shell_call        => $shell_call,
 			shell_output      => $shell_output,
 			shell_return_code => $shell_return_code
 		} });
@@ -301,6 +306,7 @@ sub stop_websockify
 
 			($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+				shell_call        => $shell_call,
 				shell_output      => $shell_output,
 				shell_return_code => $shell_return_code
 			} });
@@ -330,6 +336,7 @@ sub start_ssh_tunnel
 
 		my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+			shell_call        => $shell_call,
 			shell_output      => $shell_output,
 			shell_return_code => $shell_return_code
 		} });
@@ -367,6 +374,7 @@ sub stop_ssh_tunnel
 
 		($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+			shell_call        => $shell_call,
 			shell_output      => $shell_output,
 			shell_return_code => $shell_return_code
 		} });
@@ -379,6 +387,7 @@ sub stop_ssh_tunnel
 
 			($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+				shell_call        => $shell_call,
 				shell_output      => $shell_output,
 				shell_return_code => $shell_return_code
 			} });
