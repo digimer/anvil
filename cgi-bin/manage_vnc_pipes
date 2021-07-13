@@ -281,13 +281,28 @@ sub stop_websockify
 
 	if (is_websockify_process($parameters))
 	{
-		my $shell_call = "ssh -n ".$host_name." \"kill -9 ".$ws_pid."\"";
+		my $shell_call = "ssh -n ".$host_name." \"kill ".$ws_pid."\"";
+		my $shell_output;
+		my $shell_return_code;
 
-		my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+		($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 			shell_output      => $shell_output,
 			shell_return_code => $shell_return_code
 		} });
+
+		sleep(2);
+
+		if (is_websockify_process($parameters))
+		{
+			$shell_call = $shell_call =~ s/kill/kill -9/;
+
+			($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+				shell_output      => $shell_output,
+				shell_return_code => $shell_return_code
+			} });
+		}
 	}
 }
 
@@ -336,18 +351,33 @@ sub stop_ssh_tunnel
 
 	if (is_ssh_process($parameters))
 	{
-		my $shell_call = "kill -9 ".$ssh_tunnel_pid;
+		my $shell_call = "kill ".$ssh_tunnel_pid;
+		my $shell_output;
+		my $shell_return_code;
 
 		if (defined $host_name)
 		{
 			$shell_call = "ssh -n ".$host_name." \"".$shell_call."\"";
 		}
 
-		my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+		($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 			shell_output      => $shell_output,
 			shell_return_code => $shell_return_code
 		} });
+
+		sleep(2);
+
+		if (is_ssh_process($parameters))
+		{
+			$shell_call = $shell_call =~ s/kill/kill -9/;
+
+			($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+				shell_output      => $shell_output,
+				shell_return_code => $shell_return_code
+			} });
+		}
 	}
 }
 
