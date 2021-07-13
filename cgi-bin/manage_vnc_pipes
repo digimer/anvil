@@ -326,12 +326,6 @@ sub start_websockify
 			$ws_info                = {};
 			$ws_info->{pid}         = $ws_pid;
 			$ws_info->{source_port} = $source_port;
-			$ws_info->{is_new}      = 1;
-
-			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
-				ws_pid         => $ws_pid,
-				ws_source_port => $source_port
-			} });
 
 			if ($ws_exists_info->{exists_code} == 1)
 			{
@@ -343,6 +337,16 @@ sub start_websockify
 					ws_source_port  => $source_port
 				});
 			}
+			else
+			{
+				$ws_info->{is_new} = 1;
+			}
+
+			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+				ws_pid         => $ws_pid,
+				ws_source_port => $source_port,
+				ws_is_new      => $ws_info->{is_new}
+			} });
 		}
 	}
 
@@ -440,9 +444,6 @@ sub start_ssh_tunnel
 			$ssh_tunnel_info                 = {};
 			$ssh_tunnel_info->{pid}          = $ssh_tunnel_pid;
 			$ssh_tunnel_info->{forward_port} = $ssh_tunnel_forward_port;
-			$ssh_tunnel_info->{is_new}       = 1;
-
-			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => { ssh_tunnel_pid => $ssh_tunnel_pid } });
 
 			if ($ssh_tunnel_exists_info->{exists_code} == 1)
 			{
@@ -453,6 +454,16 @@ sub start_ssh_tunnel
 					ssh_tunnel_forward_port => $ssh_tunnel_forward_port
 				});
 			}
+			else
+			{
+				$ssh_tunnel_info->{is_new} = 1;
+			}
+
+			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+				ssh_tunnel_pid          => $ssh_tunnel_pid,
+				ssh_tunnel_forward_port => $ssh_tunnel_forward_port,
+				ssh_tunnel_is_new       => $ssh_tunnel_info->{is_new}
+			} });
 		}
 	}
 
