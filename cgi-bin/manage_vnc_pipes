@@ -468,23 +468,30 @@ sub insert_vnc_pipe
 	my $ssh_tunnel_pid          = $parameters->{ssh_tunnel_pid};
 	my $ssh_tunnel_forward_port = $parameters->{ssh_tunnel_forward_port};
 
+	my $record_uuid          = $anvil->Get->uuid();
+	my $record_modified_date = $anvil->Database->refresh_timestamp();
+
 	my $query = "
 INSERT INTO public.vnc_pipes (
+	uuid,
 	server_uuid,
 	server_vnc_port,
 	ws_host_uuid,
 	ws_pid,
 	ssh_tunnel_host_uuid,
 	ssh_tunnel_pid,
-	ssh_tunnel_forward_port
+	ssh_tunnel_forward_port,
+	modified_date
 ) VALUES (
+	".$anvil->Database->quote($record_uuid).",
 	".$anvil->Database->quote($server_uuid).",
 	".$anvil->Database->quote($server_vnc_port).",
 	".$anvil->Database->quote($ws_host_uuid).",
 	".$anvil->Database->quote($ws_pid).",
 	".$anvil->Database->quote($ssh_tunnel_host_uuid).",
 	".$anvil->Database->quote($ssh_tunnel_pid).",
-	".$anvil->Database->quote($ssh_tunnel_forward_port)."
+	".$anvil->Database->quote($ssh_tunnel_forward_port).",
+	".$anvil->Database->quote($record_modified_date)."
 );";
 
 	$anvil->Database->write({ query => $query, source => $THIS_FILE, line => __LINE__ });
