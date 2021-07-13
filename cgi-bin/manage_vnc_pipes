@@ -417,7 +417,7 @@ CREATE TABLE IF NOT EXISTS public.vnc_pipes (
 
 sub drop_vnc_pipes_table
 {
-	my $query   = "DROP TABLE IF EXISTS public.vnc_pipes;";
+	my $query = "DROP TABLE IF EXISTS public.vnc_pipes;";
 
 	$anvil->Database->write({ query => $query, source => $THIS_FILE, line => __LINE__ });
 }
@@ -532,7 +532,8 @@ AND
 
 sub open_vnc_pipe
 {
-	create_vnc_pipes_table();
+	my $parameters  = shift;
+	my $server_uuid = $parameters->{server_uuid};
 
 	my $server_info = get_server_info({ server_uuid => $server_uuid });
 
@@ -591,6 +592,8 @@ sub open_vnc_pipe
 
 sub close_vnc_pipe
 {
+	my $parameters          = shift;
+	my $server_uuid         = $parameters->{server_uuid};
 	my $vnc_pipe_parameters = { server_uuid => $server_uuid, host_uuid => $anvil->Get->host_uuid() };
 	my $vnc_pipe_info       = get_vnc_pipe($vnc_pipe_parameters);
 
@@ -660,13 +663,17 @@ $anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, lis
 
 if ($server_uuid)
 {
+	create_vnc_pipes_table();
+
+	my $vnc_pipe_parameters = { server_uuid => $server_uuid };
+
 	if ($is_open)
 	{
-		open_vnc_pipe();
+		open_vnc_pipe($vnc_pipe_parameters);
 	}
 	else
 	{
-		close_vnc_pipe();
+		close_vnc_pipe($vnc_pipe_parameters);
 	}
 }
 elsif ($anvil->data->{switches}{'drop-table'})
