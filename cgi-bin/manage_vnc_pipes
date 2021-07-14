@@ -272,6 +272,18 @@ AND
 	return $ssh_tunnel_exists_info;
 }
 
+sub is_websockify_in_use_by_others
+{
+	my $parameters = shift;
+	my $ws_pid     = $parameters->{ws_pid};
+
+	my $query = "SELECT COUNT(*) FROM public.vnc_pipes WHERE ws_pid = ".$anvil->Database->quote($ws_pid).";";
+
+	my $count = $anvil->Database->query({ query => $query, source => $THIS_FILE, line => __LINE__ })->[0]->[0];
+
+	return $count > 1 ? 1 : 0;
+}
+
 sub start_websockify
 {
 	my $parameters  = shift;
@@ -361,8 +373,6 @@ sub stop_websockify
 
 	if (is_websockify_process($parameters))
 	{
-		# TODO: make sure no other tunnel is using the same websockify instance.
-
 		my $shell_call = "ssh -n ".$host_name." \"kill ".$ws_pid."\"";
 		my $shell_output;
 		my $shell_return_code;
@@ -834,8 +844,13 @@ sub close_vnc_pipe
 		return;
 	}
 
-	stop_websockify({ host_name => $vnc_pipe_info->{host_name}, ws_pid => $vnc_pipe_info->{ws_pid} });
+	if (not is_websockify_in_use_by_others($parameters))
+	{
+		stop_websockify({ host_name => $vnc_pipe_info->{host_name}, ws_pid => $vnc_pipe_info->{ws_pid} });
+	}
+
 	stop_ssh_tunnel({ ssh_tunnel_pid => $vnc_pipe_info->{ssh_tunnel_pid} });
+
 	delete_vnc_pipe($vnc_pipe_parameters);
 }
 
