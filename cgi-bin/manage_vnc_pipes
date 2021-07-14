@@ -757,6 +757,7 @@ sub open_vnc_pipe
 	my $parameters  = shift;
 	my $server_uuid = $parameters->{server_uuid};
 	my $host_uuid   = $anvil->Get->host_uuid();
+	my $vnc_pipe_info;
 
 	my $server_info = get_server_info({ server_uuid => $server_uuid });
 
@@ -826,6 +827,10 @@ sub open_vnc_pipe
 			ssh_tunnel_forward_port => $ssh_tunnel_info->{forward_port}
 		});
 	}
+
+	$vnc_pipe_info = { forward_port => $ssh_tunnel_info->{forward_port} };
+
+	return $vnc_pipe_info;
 }
 
 sub close_vnc_pipe
@@ -912,7 +917,10 @@ if ($server_uuid)
 
 	if ($is_open)
 	{
-		open_vnc_pipe($vnc_pipe_parameters);
+		my $vnc_pipe_info = open_vnc_pipe($vnc_pipe_parameters);
+
+		$response_body->{protocol}     = "ws";
+		$response_body->{forward_port} = $vnc_pipe_info->{forward_port};
 	}
 	else
 	{
