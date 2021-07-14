@@ -859,7 +859,7 @@ sub close_vnc_pipe
 		return;
 	}
 
-	if (not is_websockify_in_use_by_others($parameters))
+	if (not is_websockify_in_use_by_others({ ws_pid => $vnc_pipe_info->{ws_pid} }))
 	{
 		stop_websockify({ host_name => $vnc_pipe_info->{host_name}, ws_pid => $vnc_pipe_info->{ws_pid} });
 	}
