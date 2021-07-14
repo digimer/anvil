@@ -341,13 +341,7 @@ sub start_websockify
 
 			if ($ws_exists_info->{exists_code} == 1)
 			{
-				update_vnc_pipe({
-					server_uuid     => $server_uuid,
-					server_vnc_port => $target_port,
-					ws_host_uuid    => $host_uuid,
-					ws_pid          => $ws_pid,
-					ws_source_port  => $source_port
-				});
+				$ws_info->{is_update} = 1;
 			}
 			else
 			{
@@ -357,6 +351,7 @@ sub start_websockify
 			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 				ws_pid         => $ws_pid,
 				ws_source_port => $source_port,
+				ws_is_update   => $ws_info->{is_update},
 				ws_is_new      => $ws_info->{is_new}
 			} });
 		}
@@ -457,12 +452,7 @@ sub start_ssh_tunnel
 
 			if ($ssh_tunnel_exists_info->{exists_code} == 1)
 			{
-				update_vnc_pipe({
-					server_uuid             => $server_uuid,
-					ssh_tunnel_host_uuid    => $host_uuid,
-					ssh_tunnel_pid          => $ssh_tunnel_pid,
-					ssh_tunnel_forward_port => $ssh_tunnel_forward_port
-				});
+				$ssh_tunnel_info->{is_update} = 1;
 			}
 			else
 			{
@@ -472,6 +462,7 @@ sub start_ssh_tunnel
 			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 				ssh_tunnel_pid          => $ssh_tunnel_pid,
 				ssh_tunnel_forward_port => $ssh_tunnel_forward_port,
+				ssh_tunnel_is_update    => $ssh_tunnel_info->{is_update},
 				ssh_tunnel_is_new       => $ssh_tunnel_info->{is_new}
 			} });
 		}
@@ -822,6 +813,25 @@ sub open_vnc_pipe
 			ws_host_uuid            => $server_info->{host_uuid},
 			ws_pid                  => $ws_info->{pid},
 			ws_source_port          => $ws_info->{source_port},
+			ssh_tunnel_host_uuid    => $host_uuid,
+			ssh_tunnel_pid          => $ssh_tunnel_info->{pid},
+			ssh_tunnel_forward_port => $ssh_tunnel_info->{forward_port}
+		});
+	}
+	elsif ($ws_info->{is_update})
+	{
+		update_vnc_pipe({
+			server_uuid     => $server_uuid,
+			server_vnc_port => $vnc_info->{port},
+			ws_host_uuid    => $server_info->{host_uuid},
+			ws_pid          => $ws_info->{pid},
+			ws_source_port  => $ws_info->{source_port}
+		});
+	}
+	elsif ($ssh_tunnel_info->{is_update})
+	{
+		update_vnc_pipe({
+			server_uuid             => $server_uuid,
 			ssh_tunnel_host_uuid    => $host_uuid,
 			ssh_tunnel_pid          => $ssh_tunnel_info->{pid},
 			ssh_tunnel_forward_port => $ssh_tunnel_info->{forward_port}
