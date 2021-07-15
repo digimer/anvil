@@ -858,7 +858,7 @@ sub open_vnc_pipe
 		return;
 	}
 
-	if ($ws_info->{is_new} and $ssh_tunnel_info->{is_new})
+	if ($ws_info->{is_new} or $ssh_tunnel_info->{is_new})
 	{
 		insert_vnc_pipe({
 			server_uuid             => $server_uuid,
