@@ -24,7 +24,7 @@ my $ssh_fh;
 
 $anvil->Log->level({ set => 2 });
 
-sub start_ssh_tunnel
+sub open_ssh_tunnel
 {
 	my $parameters          = shift;
 
@@ -88,7 +88,7 @@ WHERE hos.host_name = ".$anvil->Database->quote($target)."
 	return 0;
 }
 
-sub handle_stop_signals
+sub close_ssh_tunnel
 {
 	if (defined $ssh_fh->disconnect)
 	{
@@ -102,8 +102,8 @@ sub handle_stop_signals
 	$anvil->nice_exit({ exit_code => 0 });
 }
 
-$SIG->{INT}  = \&handle_stop_signals;
-$SIG->{TERM} = \&handle_stop_signals;
+$SIG->{INT}  = \&close_ssh_tunnel;
+$SIG->{TERM} = \&close_ssh_tunnel;
 
 $anvil->Get->switches;
 
@@ -116,7 +116,7 @@ if (not $anvil->data->{sys}{database}{connections})
 	$anvil->nice_exit({ exit_code => 1 });
 }
 
-if (start_ssh_tunnel({
+if (open_ssh_tunnel({
 	remote_user         => $anvil->data->{switches}{'remote-user'},
 	target              => $anvil->data->{switches}{'target'},
 	port                => $anvil->data->{switches}{'port'},
@@ -127,7 +127,13 @@ if (start_ssh_tunnel({
 	$anvil->nice_exit({ exit_code => 1 });
 }
 
-while(1)
+my $is_ssh_tunnel_alive = 1;
+
+while($is_ssh_tunnel_alive)
 {
-	sleep(1);
+	$is_ssh_tunnel_alive = $ssh_fh->test('echo');
+
+	sleep(60);
 }
+
+close_ssh_tunnel();
