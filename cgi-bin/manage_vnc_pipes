@@ -106,7 +106,7 @@ sub is_websockify_process
 	my $parameters = shift;
 	my $host_name  = $parameters->{host_name};
 	my $ws_pid     = $parameters->{ws_pid};
-	my $shell_call = "ps -o comm -h -p ".$ws_pid;
+	my $shell_call = "ps -e -o command -h -p ".$ws_pid;
 
 	my ($shell_output, $shell_error, $shell_return_code) = $anvil->Remote->call({
 		target      => $host_name,
@@ -121,14 +121,14 @@ sub is_websockify_process
 		shell_return_code => $shell_return_code
 	} });
 
-	return $shell_output eq "websockify" ? 1 : 0;
+	return $shell_output =~ /websockify/ ? 1 : 0;
 }
 
 sub is_ssh_process
 {
 	my $parameters     = shift;
 	my $ssh_tunnel_pid = $parameters->{ssh_tunnel_pid};
-	my $shell_call     = "ps -o comm -h -p ".$ssh_tunnel_pid;
+	my $shell_call     = "ps -e -o command -h -p ".$ssh_tunnel_pid;
 
 	my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
@@ -137,7 +137,7 @@ sub is_ssh_process
 		shell_return_code => $shell_return_code
 	} });
 
-	return $shell_output eq "ssh" ? 1 : 0;
+	return $shell_output =~ /striker-open-ssh-tunnel/ ? 1 : 0;
 }
 
 sub is_websockify_exists
