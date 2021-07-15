@@ -460,11 +460,11 @@ sub start_ssh_tunnel
 			}
 		}
 
-		my $shell_call = $anvil->data->{path}{exe}{'striker-start-ssh-tunnel'}
+		my $shell_call = $anvil->data->{path}{exe}{'striker-open-ssh-tunnel'}
 			." --remote-user admin --target ".$ws_host_name
 			." --forward-local-port ".$ssh_tunnel_forward_port
 			." --forward-remote-port ".$ws_source_port
-			." & echo pid:\$!";
+			." &>/dev/null & echo pid:\$!";
 
 		my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
