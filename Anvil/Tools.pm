@@ -1222,6 +1222,7 @@ sub _set_paths
 				'striker-parse-oui'		=>	"/usr/sbin/striker-parse-oui",
 				'striker-prep-database'		=>	"/usr/sbin/striker-prep-database",
 				'striker-scan-network'		=>	"/usr/sbin/striker-scan-network",
+				'striker-start-ssh-tunnel'	=>	"/usr/sbin/striker-start-ssh-tunnel",
 				stty				=>	"/usr/bin/stty",
 				su				=>	"/usr/bin/su",
 				'subscription-manager'		=>	"/usr/sbin/subscription-manager",

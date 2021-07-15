@@ -69,13 +69,19 @@ sub get_vnc_info
 	my $server_name = $parameters->{server_name};
 	my $port_base   = 5900;
 	# Requires root to access VM information.
-	my $shell_call  = "ssh -n root@".$host_name." \"virsh vncdisplay ".$server_name."\"";
+	my $shell_call  = "virsh vncdisplay ".$server_name;
 	my $vnc_info;
 
-	my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+	my ($shell_output, $shell_error, $shell_return_code) = $anvil->Remote->call({
+		target      => $host_name,
+		remote_user => "root",
+		shell_call  => $shell_call,
+		'close' => 1
+	});
 	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 		shell_call        => $shell_call,
 		shell_output      => $shell_output,
+		shell_error       => $shell_error,
 		shell_return_code => $shell_return_code
 	} });
 
@@ -100,12 +106,18 @@ sub is_websockify_process
 	my $parameters = shift;
 	my $host_name  = $parameters->{host_name};
 	my $ws_pid     = $parameters->{ws_pid};
-	my $shell_call = "ssh -n ".$host_name." \"ps -o comm -h -p ".$ws_pid."\"";
+	my $shell_call = "ps -o comm -h -p ".$ws_pid;
 
-	my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+	my ($shell_output, $shell_error, $shell_return_code) = $anvil->Remote->call({
+		target      => $host_name,
+		remote_user => "admin",
+		shell_call  => $shell_call,
+		'close'     => 1
+	});
 	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 		shell_call        => $shell_call,
 		shell_output      => $shell_output,
+		shell_error       => $shell_error,
 		shell_return_code => $shell_return_code
 	} });
 
@@ -322,12 +334,18 @@ sub start_websockify
 			}
 		}
 
-		my $shell_call = "ssh -n ".$host_name." 'websockify ".$source_port." :".$target_port." &>/dev/null & echo pid:\$!'";
+		my $shell_call = "websockify ".$source_port." :".$target_port." &>/dev/null & echo pid:\$!";
 
-		my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+		my ($shell_output, $shell_error, $shell_return_code) = $anvil->Remote->call({
+			target      => $host_name,
+			remote_user => "admin",
+			shell_call  => $shell_call,
+			'close'     => 1
+		});
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 			shell_call        => $shell_call,
 			shell_output      => $shell_output,
+			shell_error       => $shell_error,
 			shell_return_code => $shell_return_code
 		} });
 
@@ -368,14 +386,22 @@ sub stop_websockify
 
 	if (is_websockify_process($parameters))
 	{
-		my $shell_call = "ssh -n ".$host_name." \"kill ".$ws_pid."\"";
+		my $shell_call             = "kill ".$ws_pid;
+		my $remote_call_parameters = {
+			target      => $host_name,
+			remote_user => "admin",
+			shell_call  => $shell_call,
+			'close'     => 1
+		};
 		my $shell_output;
+		my $shell_error;
 		my $shell_return_code;
 
-		($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+		($shell_output, $shell_error, $shell_return_code) = $anvil->Remote->call($remote_call_parameters);
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 			shell_call        => $shell_call,
 			shell_output      => $shell_output,
+			shell_error       => $shell_error,
 			shell_return_code => $shell_return_code
 		} });
 
@@ -383,9 +409,10 @@ sub stop_websockify
 
 		if (is_websockify_process($parameters))
 		{
-			$shell_call = $shell_call =~ s/kill/kill -9/;
+			$shell_call                           = $shell_call =~ s/kill/kill -9/;
+			$remote_call_parameters->{shell_call} = $shell_call;
 
-			($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+			($shell_output, $shell_error, $shell_return_code) = $anvil->Remote->call($remote_call_parameters);
 			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 				shell_call        => $shell_call,
 				shell_output      => $shell_output,
@@ -433,7 +460,11 @@ sub start_ssh_tunnel
 			}
 		}
 
-		my $shell_call = "ssh -nN -L ".$ssh_tunnel_forward_port.":localhost:".$ws_source_port." ".$ws_host_name." & echo pid:\$!";
+		my $shell_call = $anvil->data->{path}{exe}{'striker-start-ssh-tunnel'}
+			." --remote-user admin --target ".$ws_host_name
+			." --forward-local-port ".$ssh_tunnel_forward_port
+			." --forward-remote-port ".$ws_source_port
+			." & echo pid:\$!";
 
 		my ($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
@@ -479,19 +510,31 @@ sub stop_ssh_tunnel
 
 	if (is_ssh_process($parameters))
 	{
-		my $shell_call = "kill ".$ssh_tunnel_pid;
+		my $shell_call             = "kill ".$ssh_tunnel_pid;
+		my $is_remote_call         = (defined $host_name) and ($host_name ne $anvil->Get->host_name()) ? 1 : 0;
+		my $remote_call_parameters = {
+			target      => $host_name,
+			remote_user => "admin",
+			shell_call  => $shell_call,
+			'close'     => 1
+		};
 		my $shell_output;
+		my $shell_error;
 		my $shell_return_code;
 
-		if ((defined $host_name) and ($host_name ne $anvil->Get->host_name()))
+		if ($is_remote_call)
 		{
-			$shell_call = "ssh -n ".$host_name." \"".$shell_call."\"";
+			($shell_output, $shell_error, $shell_return_code) = $anvil->Remote->call($remote_call_parameters);
+		}
+		else
+		{
+			($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 		}
 
-		($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 			shell_call        => $shell_call,
 			shell_output      => $shell_output,
+			shell_error       => $shell_error,
 			shell_return_code => $shell_return_code
 		} });
 
@@ -499,12 +542,22 @@ sub stop_ssh_tunnel
 
 		if (is_ssh_process($parameters))
 		{
-			$shell_call = $shell_call =~ s/kill/kill -9/;
+			$shell_call                           = $shell_call =~ s/kill/kill -9/;
+			$remote_call_parameters->{shell_call} = $shell_call;
 
-			($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+			if ($is_remote_call)
+			{
+				($shell_output, $shell_error, $shell_return_code) = $anvil->Remote->call($remote_call_parameters);
+			}
+			else
+			{
+				($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+			}
+
 			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 				shell_call        => $shell_call,
 				shell_output      => $shell_output,
+				shell_error       => $shell_error,
 				shell_return_code => $shell_return_code
 			} });
 		}
