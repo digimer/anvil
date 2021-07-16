@@ -100,6 +100,8 @@ $anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, lis
 
 if ($server_uuid)
 {
+	$is_open = defined $is_open ? $is_open : "";
+
 	my $host_uuid = $anvil->Get->host_uuid();
 	my $operation_string = $is_open ? "open" : "close";
 	my $job_uuid  = $anvil->Database->insert_or_update_jobs({
