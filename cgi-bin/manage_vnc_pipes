@@ -48,6 +48,25 @@ AND
 	return $vnc_pipe_info;
 }
 
+sub is_job_incomplete
+{
+	my $parameters = shift;
+	my $job_uuid   = $parameters->{job_uuid};
+
+	my $query = "
+SELECT
+	job_progress
+FROM
+	public.jobs
+WHERE
+	job_uuid = ".$anvil->Database->quote($job_uuid)."
+;";
+
+	my $job_progress = $anvil->Database->query({ query => $query, source => $THIS_FILE, line => __LINE__ })->[0]->[0];
+
+	return $job_progress == 100 ? 0 : 1;
+}
+
 $anvil->Get->switches;
 
 $anvil->Database->connect;
@@ -115,7 +134,7 @@ if ($server_uuid)
 	});
 
 	# Wait until the job is complete before continuing.
-	while($anvil->Job->get_job_details({ job_uuid => $job_uuid }))
+	while(is_job_incomplete({ job_uuid => $job_uuid }))
 	{
 		sleep(2);
 	}
