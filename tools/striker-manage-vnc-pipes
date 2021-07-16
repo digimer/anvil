@@ -1000,7 +1000,7 @@ if ($anvil->data->{switches}{'job-uuid'})
 	{
 		if ($line =~ /server-uuid=(.*?)$/)
 		{
-			$anvil->data->{switches}{'power-off'} = $1;
+			$anvil->data->{switches}{'server-uuid'} = $1;
 			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 				'switches::server-uuid' => $anvil->data->{switches}{'server-uuid'}
 			} });
