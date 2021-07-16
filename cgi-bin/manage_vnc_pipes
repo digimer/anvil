@@ -114,14 +114,14 @@ if ($server_uuid)
 		job_title       => "job_0350"
 	});
 
+	# Wait until the job is complete before continuing.
+	while($anvil->Job->get_job_details({ job_uuid => $job_uuid }))
+	{
+		sleep(2);
+	}
+
 	if ($is_open)
 	{
-		# Wait until the job is complete before fetching for the results.
-		while($anvil->Job->get_job_details({ job_uuid => $job_uuid }))
-		{
-			sleep(2);
-		}
-
 		$response_body = get_vnc_pipe_info({ server_uuid => $server_uuid, host_uuid => $host_uuid });
 	}
 }
