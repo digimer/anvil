@@ -2220,6 +2220,7 @@ Are you sure that you want to delete the server: [#!variable!server_name!#]? [Ty
 		<key name="message_0256">Preparing to manage VNC pipes.</key>
 		<key name="message_0257">Finished [#!variable!operation!#] VNC pipe for server UUID [#!variable!server_uuid!#] from host UUID [#!variable!host_uuid!#].</key>
 		<key name="message_0258">Finished dropping VNC pipes table.</key>
+		<key name="message_0259">Finished managing VNC pipes; no operations happened because requirements not met.</key>
 		
 		<!-- Success messages shown to the user --> 
 		<key name="ok_0001">Saved the mail server information successfully!</key>

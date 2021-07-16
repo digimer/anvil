@@ -1062,3 +1062,7 @@ elsif ($anvil->data->{switches}{'drop-table'})
 
 	$anvil->Job->update_progress({ progress => 100, message => "message_0258" });
 }
+else
+{
+	$anvil->Job->update_progress({ progress => 100, message => "message_0259" });
+}
