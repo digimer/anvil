@@ -106,7 +106,7 @@ if ($server_uuid)
 	my $operation_string = $is_open ? "open" : "close";
 	my $job_uuid  = $anvil->Database->insert_or_update_jobs({
 		job_command     => $anvil->data->{path}{exe}{'striker-manage-vnc-pipes'},
-		job_data        => "server_uuid=".$server_uuid."\nopen=".$is_open,
+		job_data        => "server-uuid=".$server_uuid."\nopen=".$is_open,
 		job_host_uuid   => $host_uuid,
 		job_description => "job_0351,!!operation!".$operation_string."!!,!!server_uuid!".$server_uuid."!!,!!host_uuid!".$host_uuid."!!",
 		job_name        => "cgi-bin::manage_vnc_pipes::".$operation_string,
