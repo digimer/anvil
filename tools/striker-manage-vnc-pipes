@@ -798,16 +798,22 @@ sub open_vnc_pipe
 {
 	my $parameters  = shift;
 	my $server_uuid = $parameters->{server_uuid};
-	my $host_uuid   = $anvil->Get->host_uuid();
+	my $host_uuid   = $parameters->{host_uuid};
 	my $vnc_pipe_info;
 
 	my $server_info = get_server_info({ server_uuid => $server_uuid });
 
 	if (not defined $server_info)
 	{
-		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
-			message => "Failed to get server VM information."
+		$anvil->Log->entry({ source => $THIS_FILE, line => __LINE__, level => 1, key => "error_0313", variables => {
+			server_uuid => $server_uuid,
+			host_uuid   => $host_uuid
 		} });
+		$anvil->Job->update_progress({
+			progress   => 100,
+			message    => "error_0313,!!server_uuid!".$server_uuid."!!,!!host_uuid!".$host_uuid."!!",
+			job_status => "failed"
+		});
 
 		return;
 	}
@@ -816,9 +822,15 @@ sub open_vnc_pipe
 
 	if (not defined $vnc_info)
 	{
-		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
-			message => "Failed to get server VM VNC information."
+		$anvil->Log->entry({ source => $THIS_FILE, line => __LINE__, level => 1, key => "error_0314", variables => {
+			server_uuid => $server_uuid,
+			host_uuid   => $host_uuid
 		} });
+		$anvil->Job->update_progress({
+			progress   => 100,
+			message    => "error_0314,!!server_uuid!".$server_uuid."!!,!!host_uuid!".$host_uuid."!!",
+			job_status => "failed"
+		});
 
 		return;
 	}
@@ -832,9 +844,15 @@ sub open_vnc_pipe
 
 	if (not defined $ws_info)
 	{
-		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
-			message => "Failed to get websockify instance information."
+		$anvil->Log->entry({ source => $THIS_FILE, line => __LINE__, level => 1, key => "error_0315", variables => {
+			server_uuid => $server_uuid,
+			host_uuid   => $host_uuid
 		} });
+		$anvil->Job->update_progress({
+			progress   => 100,
+			message    => "error_0315,!!server_uuid!".$server_uuid."!!,!!host_uuid!".$host_uuid."!!",
+			job_status => "failed"
+		});
 
 		return;
 	}
@@ -849,9 +867,15 @@ sub open_vnc_pipe
 
 	if (not defined $ssh_tunnel_info)
 	{
-		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
-			message => "Failed to get SSH tunnel instance information."
+		$anvil->Log->entry({ source => $THIS_FILE, line => __LINE__, level => 1, key => "error_0316", variables => {
+			server_uuid => $server_uuid,
+			host_uuid   => $host_uuid
 		} });
+		$anvil->Job->update_progress({
+			progress   => 100,
+			message    => "error_0316,!!server_uuid!".$server_uuid."!!,!!host_uuid!".$host_uuid."!!",
+			job_status => "failed"
+		});
 
 		return;
 	}
@@ -893,7 +917,12 @@ sub open_vnc_pipe
 		}
 	}
 
-	$vnc_pipe_info = { forward_port => $ssh_tunnel_info->{forward_port} };
+	$anvil->Job->update_progress({
+		progress => 100,
+		message  => "message_0257,!!operation!opening!!,!!server_uuid!".$server_uuid."!!,!!host_uuid!".$host_uuid."!!"
+	});
+
+	$vnc_pipe_info = { forward_port => defined $ssh_tunnel_info->{forward_port} ? $ssh_tunnel_info->{forward_port} : "" };
 
 	return $vnc_pipe_info;
 }
@@ -902,14 +931,20 @@ sub close_vnc_pipe
 {
 	my $parameters          = shift;
 	my $server_uuid         = $parameters->{server_uuid};
-	my $vnc_pipe_parameters = { server_uuid => $server_uuid, host_uuid => $anvil->Get->host_uuid() };
-	my $vnc_pipe_info       = get_vnc_pipe($vnc_pipe_parameters);
+	my $host_uuid           = $parameters->{host_uuid};
+	my $vnc_pipe_info       = get_vnc_pipe($parameters);
 
 	if (not defined $vnc_pipe_info)
 	{
-		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
-			message => "Failed to get VNC pipe information."
+		$anvil->Log->entry({ source => $THIS_FILE, line => __LINE__, level => 1, key => "error_0317", variables => {
+			server_uuid => $server_uuid,
+			host_uuid   => $host_uuid
 		} });
+		$anvil->Job->update_progress({
+			progress   => 100,
+			message    => "error_0317,!!server_uuid!".$server_uuid."!!,!!host_uuid!".$host_uuid."!!",
+			job_status => "failed"
+		});
 
 		return;
 	}
@@ -921,7 +956,12 @@ sub close_vnc_pipe
 
 	stop_ssh_tunnel({ ssh_tunnel_pid => $vnc_pipe_info->{ssh_tunnel_pid} });
 
-	delete_vnc_pipe($vnc_pipe_parameters);
+	delete_vnc_pipe($parameters);
+
+	$anvil->Job->update_progress({
+		progress => 100,
+		message  => "message_0257,!!operation!closing!!,!!server_uuid!".$server_uuid."!!,!!host_uuid!".$host_uuid."!!"
+	});
 }
 
 $anvil->Get->switches;
@@ -935,37 +975,90 @@ if (not $anvil->data->{sys}{database}{connections})
 	$anvil->nice_exit({ exit_code => 1 });
 }
 
+# Try to get a job UUID if not given.
+if (not $anvil->data->{switches}{'job-uuid'})
+{
+	$anvil->data->{switches}{'job-uuid'} = $anvil->Job->get_job_uuid({ program => $THIS_FILE });
+	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+		"switches::job-uuid" => $anvil->data->{switches}{'job-uuid'}
+	} });
+}
+
+# Handle this script as a job when job UUID is provided.
+if ($anvil->data->{switches}{'job-uuid'})
+{
+	$anvil->Job->clear();
+	$anvil->Job->get_job_details();
+	$anvil->Job->update_progress({
+		progress         => 1,
+		job_picked_up_by => $$,
+		job_picked_up_at => time,
+		message          => "message_0256"
+	});
+
+	foreach my $line (split/\n/, $anvil->data->{jobs}{job_data})
+	{
+		if ($line =~ /server-uuid=(.*?)$/)
+		{
+			$anvil->data->{switches}{'power-off'} = $1;
+			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+				'switches::server-uuid' => $anvil->data->{switches}{'server-uuid'}
+			} });
+		}
+
+		if ($line =~ /open=(.*?)$/)
+		{
+			$anvil->data->{switches}{'open'} = $1;
+			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+				'switches::open' => $anvil->data->{switches}{'open'}
+			} });
+		}
+
+		if ($line =~ /drop-table=(.*?)$/)
+		{
+			$anvil->data->{switches}{'drop-table'} = $1;
+			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+				'switches::drop-table' => $anvil->data->{switches}{'drop-table'}
+			} });
+		}
+	}
+}
+
 $anvil->Database->get_hosts();
 $anvil->Database->get_anvils();
 
-my $server_uuid   = $anvil->data->{switches}{'server-uuid'};
-my $is_open       = $anvil->data->{switches}{'open'};
-my $is_drop_table = $anvil->data->{switches}{'drop-table'};
-
 $anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
-	server_uuid   => $server_uuid,
-	is_open       => $is_open,
-	is_drop_table => $is_drop_table
+	server_uuid   => $anvil->data->{switches}{'server-uuid'},
+	is_open       => $anvil->data->{switches}{'open'},
+	is_drop_table => $anvil->data->{switches}{'drop-table'}
 } });
 
-if ($server_uuid)
+if ($anvil->data->{switches}{'server-uuid'})
 {
 	create_vnc_pipes_table();
 
-	my $vnc_pipe_parameters = { server_uuid => $server_uuid };
+	my $vnc_pipe_parameters = {
+		server_uuid => $anvil->data->{switches}{'server-uuid'},
+		host_uuid => $anvil->Get->host_uuid()
+	};
 
-	if ($is_open)
+	if ($anvil->data->{switches}{'open'})
 	{
 		my $vnc_pipe_info = open_vnc_pipe($vnc_pipe_parameters);
 
-		print "protocol:ws,forward_port:".$vnc_pipe_info->{forward_port}."\n";
+		if (not $anvil->data->{switches}{'job-uuid'})
+		{
+			print "protocol:ws,forward_port:".$vnc_pipe_info->{forward_port}."\n";
+		}
 	}
 	else
 	{
 		close_vnc_pipe($vnc_pipe_parameters);
 	}
 }
-elsif ($is_drop_table)
+elsif ($anvil->data->{switches}{'drop-table'})
 {
 	drop_vnc_pipes_table();
+
+	$anvil->Job->update_progress({ progress => 100, message => "message_0258" });
 }
