@@ -1116,6 +1116,8 @@ It should be provisioned in the next minute or two.</key>
 		<key name="job_0347">Both the BCN1 and SN1 links are working between the nodes. Checking corosync now...</key>
 		<key name="job_0348">Synchronizing the new corosync config exited with return code: [#!variable!return_code!#] and output: [#!variable!output!#]</key>
 		<key name="job_0349">Loading the new corosync config exited with return code: [#!variable!return_code!#] and output: [#!variable!output!#]</key>
+		<key name="job_0350">Manage VNC Pipes</key>
+		<key name="job_0351">Perform VNC pipe operation [#!variable!operation!#] for server UUID [#!variable!server_uuid!#] from host UUID [#!variable!host_uuid!#].</key>
 		
 		<!-- Log entries -->
 		<key name="log_0001">Starting: [#!variable!program!#].</key>
