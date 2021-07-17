@@ -22,8 +22,6 @@ if (($running_directory =~ /^\./) && ($ENV{PWD}))
 my $anvil = Anvil::Tools->new();
 my $ssh_fh;
 
-$anvil->Log->level({ set => 2 });
-
 sub open_ssh_tunnel
 {
 	my $parameters          = shift;
