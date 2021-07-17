@@ -424,11 +424,11 @@ The attempt to start the servers appears to have failed. The return code '0' was
 		<key name="error_0310">I tried to remove the fence delay from the node: [#!variable!node!#], but it doesn't appear to have worked. The preferred node is: [#!variable!current!#] ('--' means there is no preferred node)</key>
 		<key name="error_0311">Failed to find the UUID column for the table: [#!variable!table!#].</key>
 		<key name="error_0312">The 'set_to' parameter: [#!variable!set_to!#] is invalid. It must be 'yes' or 'no'.</key>
-		<key name="error_0313">While opening VNC pipe, failed to get server VM information with [#!variable!server_uuid!#] and [#!variable!host_uuid!#].</key>
-		<key name="error_0314">While opening VNC pipe, failed to get server VM VNC information with [#!variable!server_uuid!#] and [#!variable!host_uuid!#].</key>
-		<key name="error_0315">While opening VNC pipe, failed to get websockify instance information with [#!variable!server_uuid!#] and [#!variable!host_uuid!#].</key>
-		<key name="error_0316">While opening VNC pipe, failed to get SSH tunnel instance information with [#!variable!server_uuid!#] and [#!variable!host_uuid!#].</key>
-		<key name="error_0317">While closing VNC pipe, failed to get VNC pipe information with [#!variable!server_uuid!#] and [#!variable!host_uuid!#].</key>
+		<key name="error_0313">While opening VNC pipe, failed to get server VM information with server UUID [#!variable!server_uuid!#] and host UUID [#!variable!host_uuid!#].</key>
+		<key name="error_0314">While opening VNC pipe, failed to get server VM VNC information with server UUID [#!variable!server_uuid!#] and host UUID [#!variable!host_uuid!#].</key>
+		<key name="error_0315">While opening VNC pipe, failed to get websockify instance information with server UUID [#!variable!server_uuid!#] and host UUID [#!variable!host_uuid!#].</key>
+		<key name="error_0316">While opening VNC pipe, failed to get SSH tunnel instance information with server UUID [#!variable!server_uuid!#] and host UUID [#!variable!host_uuid!#].</key>
+		<key name="error_0317">While closing VNC pipe, failed to get VNC pipe information with server UUID [#!variable!server_uuid!#] and host UUID [#!variable!host_uuid!#].</key>
 		
 		<!-- Files templates -->
 		<!-- NOTE: Translating these files requires an understanding of which lines are translatable -->
