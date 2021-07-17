@@ -39,6 +39,8 @@ dist_sbin_SCRIPTS	= \
 			  striker-initialize-host \
 			  striker-manage-install-target \
 			  striker-manage-peers \
+			  striker-manage-vnc-pipes \
+			  striker-open-ssh-tunnel \
 			  striker-parse-os-list \
 			  striker-parse-oui \
 			  striker-prep-database \
