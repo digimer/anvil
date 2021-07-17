@@ -1219,6 +1219,8 @@ sub _set_paths
 				'striker-initialize-host'	=>	"/usr/sbin/striker-initialize-host",
 				'striker-manage-install-target'	=>	"/usr/sbin/striker-manage-install-target",
 				'striker-manage-peers'		=>	"/usr/sbin/striker-manage-peers",
+				'striker-manage-vnc-pipes'	=>	"/usr/sbin/striker-manage-vnc-pipes",
+				'striker-open-ssh-tunnel'	=>	"/usr/sbin/striker-open-ssh-tunnel",
 				'striker-parse-oui'		=>	"/usr/sbin/striker-parse-oui",
 				'striker-prep-database'		=>	"/usr/sbin/striker-prep-database",
 				'striker-scan-network'		=>	"/usr/sbin/striker-scan-network",

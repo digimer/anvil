@@ -1,0 +1,137 @@
+#!/usr/bin/perl
+#
+# Open an SSH tunnel using the Net::OpenSSH module and keep it opened with an infinite loop.
+#
+# Note: this is a temporary solution to avoid directly calling the SSH command.
+#
+
+use strict;
+use warnings;
+use Anvil::Tools;
+use Net::OpenSSH;
+
+$| = 1;
+
+my $THIS_FILE           =  ($0 =~ /^.*\/(.*)$/)[0];
+my $running_directory   =  ($0 =~ /^(.*?)\/$THIS_FILE$/)[0];
+if (($running_directory =~ /^\./) && ($ENV{PWD}))
+{
+	$running_directory =~ s/^\./$ENV{PWD}/;
+}
+
+my $anvil = Anvil::Tools->new();
+my $ssh_fh;
+
+sub open_ssh_tunnel
+{
+	my $parameters          = shift;
+
+	# Required parameters:
+	my $remote_user         = $parameters->{remote_user};
+	my $target              = $parameters->{target};
+	my $forward_local_port  = $parameters->{forward_local_port};
+	my $forward_remote_port = $parameters->{forward_remote_port};
+
+	if ((not defined $remote_user)
+		or (not defined $target)
+		or (not defined $forward_local_port)
+		or (not defined $forward_remote_port))
+	{
+		return 1;
+	}
+
+	# Optional parameters:
+	my $port                = $parameters->{port} ? $parameters->{port} : 22;
+
+	my $ssh_fh_key          = $remote_user."\@".$target.":".$port;
+	my $query               = "
+SELECT anv.anvil_password
+FROM hosts AS hos
+JOIN anvils AS anv
+ON hos.host_uuid = anv.anvil_node1_host_uuid
+	OR hos.host_uuid = anv.anvil_node2_host_uuid
+	OR hos.host_uuid = anv.anvil_dr1_host_uuid
+WHERE hos.host_name = ".$anvil->Database->quote($target)."
+;";
+
+	my $password = $anvil->Database->query({ query => $query, source => $THIS_FILE, line => __LINE__ })->[0]->[0];
+
+	my ($output, $error, $return_code) = $anvil->Remote->call({
+		remote_user => $remote_user,
+		target      => $target,
+		password    => $password,
+		shell_call  => $anvil->data->{path}{exe}{echo}." 1",
+		no_cache    => 1,
+	});
+	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+		output      => $output,
+		error       => $error,
+		return_code => $return_code
+	} });
+
+	if ($output eq "1")
+	{
+		$ssh_fh = $anvil->data->{cache}{ssh_fh}{$ssh_fh_key};
+
+		delete $anvil->data->{cache}{ssh_fh}{$ssh_fh_key};
+
+		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+			is_ssh_fh_defined => defined $ssh_fh ? 1 : 0
+		} });
+	}
+
+	$ssh_fh->system({ ssh_opts => [ "-O", "forward",
+		"-L".$forward_local_port.":localhost:".$forward_remote_port ] });
+
+	return 0;
+}
+
+sub close_ssh_tunnel
+{
+	if (defined $ssh_fh->disconnect)
+	{
+		$ssh_fh->disconnect();
+
+		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+			message => "SSH tunnel disconnected."
+		} });
+	}
+
+	$anvil->nice_exit({ exit_code => 0 });
+}
+
+$SIG->{INT}  = \&close_ssh_tunnel;
+$SIG->{TERM} = \&close_ssh_tunnel;
+
+$anvil->Get->switches;
+
+$anvil->Database->connect;
+$anvil->Log->entry({ source => $THIS_FILE, line => __LINE__, level => 2, secure => 0, key => "log_0132" });
+if (not $anvil->data->{sys}{database}{connections})
+{
+	# No databases, exit.
+	$anvil->Log->entry({ source => $THIS_FILE, line => __LINE__, level => 0, 'print' => 1, priority => "err", key => "error_0003" });
+	$anvil->nice_exit({ exit_code => 1 });
+}
+
+if (open_ssh_tunnel({
+	remote_user         => $anvil->data->{switches}{'remote-user'},
+	target              => $anvil->data->{switches}{'target'},
+	port                => $anvil->data->{switches}{'port'},
+	forward_local_port  => $anvil->data->{switches}{'forward-local-port'},
+	forward_remote_port => $anvil->data->{switches}{'forward-remote-port'}
+}) > 0)
+{
+	$anvil->nice_exit({ exit_code => 1 });
+}
+
+my $is_ssh_tunnel_alive = 1;
+
+while($is_ssh_tunnel_alive)
+{
+	$is_ssh_tunnel_alive = $ssh_fh->test('echo');
+
+	sleep(60);
+}
+
+close_ssh_tunnel();

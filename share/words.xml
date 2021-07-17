@@ -424,6 +424,11 @@ The attempt to start the servers appears to have failed. The return code '0' was
 		<key name="error_0310">I tried to remove the fence delay from the node: [#!variable!node!#], but it doesn't appear to have worked. The preferred node is: [#!variable!current!#] ('--' means there is no preferred node)</key>
 		<key name="error_0311">Failed to find the UUID column for the table: [#!variable!table!#].</key>
 		<key name="error_0312">The 'set_to' parameter: [#!variable!set_to!#] is invalid. It must be 'yes' or 'no'.</key>
+		<key name="error_0313">While opening VNC pipe, failed to get server VM information with server UUID [#!variable!server_uuid!#] and host UUID [#!variable!host_uuid!#].</key>
+		<key name="error_0314">While opening VNC pipe, failed to get server VM VNC information with server UUID [#!variable!server_uuid!#] and host UUID [#!variable!host_uuid!#].</key>
+		<key name="error_0315">While opening VNC pipe, failed to get websockify instance information with server UUID [#!variable!server_uuid!#] and host UUID [#!variable!host_uuid!#].</key>
+		<key name="error_0316">While opening VNC pipe, failed to get SSH tunnel instance information with server UUID [#!variable!server_uuid!#] and host UUID [#!variable!host_uuid!#].</key>
+		<key name="error_0317">While closing VNC pipe, failed to get VNC pipe information with server UUID [#!variable!server_uuid!#] and host UUID [#!variable!host_uuid!#].</key>
 		
 		<!-- Files templates -->
 		<!-- NOTE: Translating these files requires an understanding of which lines are translatable -->
@@ -1111,6 +1116,8 @@ It should be provisioned in the next minute or two.</key>
 		<key name="job_0347">Both the BCN1 and SN1 links are working between the nodes. Checking corosync now...</key>
 		<key name="job_0348">Synchronizing the new corosync config exited with return code: [#!variable!return_code!#] and output: [#!variable!output!#]</key>
 		<key name="job_0349">Loading the new corosync config exited with return code: [#!variable!return_code!#] and output: [#!variable!output!#]</key>
+		<key name="job_0350">Manage VNC Pipes</key>
+		<key name="job_0351">Perform VNC pipe operation [#!variable!operation!#] for server UUID [#!variable!server_uuid!#] from host UUID [#!variable!host_uuid!#].</key>
 		
 		<!-- Log entries -->
 		<key name="log_0001">Starting: [#!variable!program!#].</key>
@@ -2210,6 +2217,10 @@ Are you sure that you want to delete the server: [#!variable!server_name!#]? [Ty
 		<key name="message_0253">The fence delay to prefer the node: [#!variable!node!#] has been removed.</key>
 		<key name="message_0254">The fence delay now prefers the node: [#!variable!node!#].</key>
 		<key name="message_0255">This is the TCP port that the VNC server is listening on to provide graphical access to the associated server.</key>
+		<key name="message_0256">Preparing to manage VNC pipes.</key>
+		<key name="message_0257">Finished [#!variable!operation!#] VNC pipe for server UUID [#!variable!server_uuid!#] from host UUID [#!variable!host_uuid!#].</key>
+		<key name="message_0258">Finished dropping VNC pipes table.</key>
+		<key name="message_0259">Finished managing VNC pipes; no operations happened because requirements not met.</key>
 		
 		<!-- Success messages shown to the user --> 
 		<key name="ok_0001">Saved the mail server information successfully!</key>
