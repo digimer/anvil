@@ -65,35 +65,59 @@ sub get_vnc_info
 	my $parameters  = shift;
 	my $host_name   = $parameters->{host_name};
 	my $server_name = $parameters->{server_name};
+	my $server_uuid = $parameters->{server_uuid};
 	my $port_base   = 5900;
 	# Requires root to access VM information.
 	my $shell_call  = "virsh vncdisplay ".$server_name;
 	my $vnc_info;
 
-	my ($shell_output, $shell_error, $shell_return_code) = $anvil->Remote->call({
-		target      => $host_name,
-		remote_user => "root",
-		shell_call  => $shell_call,
-		'close' => 1
-	});
-	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
-		shell_call        => $shell_call,
-		shell_output      => $shell_output,
-		shell_error       => $shell_error,
-		shell_return_code => $shell_return_code
-	} });
+	my $query = "
+SELECT
+	variable_value
+FROM
+	public.variables
+WHERE
+	variable_name = 'server::vnc_port'
+AND
+	variable_source_table = 'servers'
+AND
+	variable_source_uuid = ".$anvil->Database->quote($server_uuid)."
+;";
 
-	if ($shell_return_code == 0)
+	my $vnc_port_in_record = $anvil->Database->query({ query => $query, source => $THIS_FILE, line => __LINE__ })->[0]->[0];
+	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => { vnc_port_in_record => $vnc_port_in_record } });
+
+	if ($vnc_port_in_record)
 	{
-		my ($port_offset) = $shell_output =~ /:(\d+)$/;
-
 		$vnc_info         = { host_name => $host_name };
-		$vnc_info->{port} = $port_base + int($port_offset);
-
+		$vnc_info->{port} = $vnc_port_in_record;
+	}
+	else
+	{
+		my ($shell_output, $shell_error, $shell_return_code) = $anvil->Remote->call({
+			target      => $host_name,
+			remote_user => "root",
+			shell_call  => $shell_call
+		});
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
-			port_offset => $port_offset,
-			vnc_port    => $vnc_info->{port}
+			shell_call        => $shell_call,
+			shell_output      => $shell_output,
+			shell_error       => $shell_error,
+			shell_return_code => $shell_return_code
 		} });
+
+		if ($shell_return_code == 0)
+		{
+			my ($port_offset) = $shell_output =~ /:(\d+)$/;
+
+			$vnc_info         = { host_name => $host_name };
+			$vnc_info->{port} = $port_base + int($port_offset);
+
+			$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+				port_offset => $port_offset,
+				vnc_port    => $vnc_info->{port}
+			} });
+		}
 	}
 
 	return $vnc_info;
@@ -811,7 +835,11 @@ sub open_vnc_pipe
 		return;
 	}
 
-	my $vnc_info = get_vnc_info($server_info);
+	my $vnc_info = get_vnc_info({
+		host_name   => $server_info->{host_name},
+		server_name => $server_info->{server_name},
+		server_uuid => $server_info->{server_uuid}
+	});
 
 	if (not defined $vnc_info)
 	{
