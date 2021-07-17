@@ -10,6 +10,7 @@ dist_cgibin_SCRIPTS     = \
                           get_servers \
                           get_shared_storage \
                           get_status \
+                          manage_vnc_pipes \
                           set_membership \
                           set_power \
                           striker \
