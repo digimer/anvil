@@ -838,7 +838,7 @@ sub open_vnc_pipe
 	my $vnc_info = get_vnc_info({
 		host_name   => $server_info->{host_name},
 		server_name => $server_info->{server_name},
-		server_uuid => $server_info->{server_uuid}
+		server_uuid => $server_uuid
 	});
 
 	if (not defined $vnc_info)
