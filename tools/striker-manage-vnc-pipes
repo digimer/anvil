@@ -108,9 +108,7 @@ sub is_websockify_process
 
 	my ($shell_output, $shell_error, $shell_return_code) = $anvil->Remote->call({
 		target      => $host_name,
-		remote_user => "admin",
-		shell_call  => $shell_call,
-		'close'     => 1
+		shell_call  => $shell_call
 	});
 	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 		shell_call        => $shell_call,
@@ -337,8 +335,7 @@ sub start_websockify
 		my ($shell_output, $shell_error, $shell_return_code) = $anvil->Remote->call({
 			target      => $host_name,
 			remote_user => "admin",
-			shell_call  => $shell_call,
-			'close'     => 1
+			shell_call  => $shell_call
 		});
 		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
 			shell_call        => $shell_call,
@@ -387,9 +384,7 @@ sub stop_websockify
 		my $shell_call             = "kill ".$ws_pid;
 		my $remote_call_parameters = {
 			target      => $host_name,
-			remote_user => "admin",
-			shell_call  => $shell_call,
-			'close'     => 1
+			shell_call  => $shell_call
 		};
 		my $shell_output;
 		my $shell_error;
@@ -512,9 +507,7 @@ sub stop_ssh_tunnel
 		my $is_remote_call         = (defined $host_name) and ($host_name ne $anvil->Get->host_name()) ? 1 : 0;
 		my $remote_call_parameters = {
 			target      => $host_name,
-			remote_user => "admin",
-			shell_call  => $shell_call,
-			'close'     => 1
+			shell_call  => $shell_call
 		};
 		my $shell_output;
 		my $shell_error;
