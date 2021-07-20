@@ -121,6 +121,50 @@ AND
 	return $vnc_info;
 }
 
+sub get_available_port
+{
+	my $parameters    = shift;
+	my $start_port    = $parameters->{start_port};
+	my $host_name     = $parameters->{host_name};
+	my $step_operator = ((defined $parameters->{step_operator}) and ($parameters->{step_operator} =~ /^[+-]$/)) ? $parameters->{step_operator} : "+";
+	my $step_size     = (
+		(defined $parameters->{step_size})
+		and ($parameters->{step_size} =~ /^\d+$/)
+		and ($parameters->{step_size} > 0)
+	) ? $parameters->{step_size} : 1;
+	my $shell_output;
+	my $shell_error;
+	my $shell_return_code;
+	my $available_port;
+
+	my $shell_call = "ss_output=\$(ss --all --tcp --numeric) && port=".$start_port." && while egrep -q \":\${port}[[:space:]]+[^[:space:]]+\" <<<\$ss_output; do (( port ".$step_operator."= ".$step_size." )); done && echo \$port";
+
+	my $is_remote_call = is_remote_host_name($host_name);
+
+	if ($is_remote_call)
+	{
+		($shell_output, $shell_error, $shell_return_code) = $anvil->Remote->call({ target => $host_name, shell_call => $shell_call });
+	}
+	else
+	{
+		($shell_output, $shell_return_code) = $anvil->System->call({ shell_call => $shell_call });
+	}
+
+	$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+		shell_call        => $shell_call,
+		shell_output      => $shell_output,
+		shell_error       => $shell_error,
+		shell_return_code => $shell_return_code
+	} });
+
+	if ($shell_return_code == 0)
+	{
+		$available_port = $shell_output;
+	}
+
+	return $available_port;
+}
+
 sub is_websockify_process
 {
 	my $parameters = shift;
@@ -314,6 +358,13 @@ sub is_websockify_in_use_by_others
 	return $count > 1 ? 1 : 0;
 }
 
+sub is_remote_host_name
+{
+	my $host_name = shift;
+
+	return ((defined $host_name) and ($host_name ne $anvil->Get->host_name())) ? 1 : 0;
+}
+
 sub start_websockify
 {
 	my $parameters  = shift;
@@ -350,6 +401,16 @@ sub start_websockify
 
 				$source_port = $source_port_base + $target_port;
 			}
+		}
+
+		$source_port = get_available_port({ start_port => $source_port, host_name => $host_name });
+		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+			source_port => $source_port
+		} });
+
+		if (not defined $source_port)
+		{
+			return;
 		}
 
 		my $shell_call = "websockify ".$source_port." :".$target_port." &>/dev/null & echo pid:\$!";
@@ -475,6 +536,16 @@ sub start_ssh_tunnel
 			}
 		}
 
+		$ssh_tunnel_forward_port = get_available_port({ start_port => $ssh_tunnel_forward_port });
+		$anvil->Log->variables({ source => $THIS_FILE, line => __LINE__, level => 2, list => {
+			ssh_tunnel_forward_port => $ssh_tunnel_forward_port
+		} });
+
+		if (not defined $ssh_tunnel_forward_port)
+		{
+			return;
+		}
+
 		my $shell_call = $anvil->data->{path}{exe}{'striker-open-ssh-tunnel'}
 			." --remote-user admin --target ".$ws_host_name
 			." --forward-local-port ".$ssh_tunnel_forward_port
@@ -526,7 +597,7 @@ sub stop_ssh_tunnel
 	if (is_ssh_process($parameters))
 	{
 		my $shell_call             = "kill ".$ssh_tunnel_pid;
-		my $is_remote_call         = (defined $host_name) and ($host_name ne $anvil->Get->host_name()) ? 1 : 0;
+		my $is_remote_call         = is_remote_host_name($host_name);
 		my $remote_call_parameters = {
 			target      => $host_name,
 			shell_call  => $shell_call
@@ -1065,7 +1136,7 @@ if ($anvil->data->{switches}{'server-uuid'})
 	{
 		my $vnc_pipe_info = open_vnc_pipe($vnc_pipe_parameters);
 
-		if (not $anvil->data->{switches}{'job-uuid'})
+		if ((not $anvil->data->{switches}{'job-uuid'}) and (defined $vnc_pipe_info))
 		{
 			print "protocol:ws,forward_port:".$vnc_pipe_info->{forward_port}."\n";
 		}
