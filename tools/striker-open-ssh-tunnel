@@ -81,7 +81,7 @@ WHERE hos.host_name = ".$anvil->Database->quote($target)."
 	}
 
 	$ssh_fh->system({ ssh_opts => [ "-O", "forward",
-		"-L".$forward_local_port.":localhost:".$forward_remote_port ] });
+		"-L0.0.0.0:".$forward_local_port.":0.0.0.0:".$forward_remote_port ] });
 
 	return 0;
 }
