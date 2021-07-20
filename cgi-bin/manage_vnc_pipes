@@ -125,7 +125,7 @@ if ($server_uuid)
 		job_data        => "server-uuid=".$server_uuid."\nopen=".$open_string,
 		job_host_uuid   => $host_uuid,
 		job_description => "job_0351,!!operation!".$operation_string."!!,!!server_uuid!".$server_uuid."!!,!!host_uuid!".$host_uuid."!!",
-		job_name        => "cgi-bin::manage_vnc_pipes::".$operation_string,
+		job_name        => "cgi-bin::manage_vnc_pipes::".$server_uuid."::".$operation_string,
 		job_progress    => 0,
 		job_title       => "job_0350"
 	});
